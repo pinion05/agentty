@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto';
 import { spawn, type IPty } from 'node-pty';
 
 import { readSessions, writeSessions } from './state';
-import type { SessionRecord } from './types';
 
 export interface StartSessionInput {
   command: string;
@@ -11,7 +10,7 @@ export interface StartSessionInput {
   name?: string;
 }
 
-export interface SessionMetadata extends SessionRecord {
+export interface SessionMetadata {
   id: string;
   pid: number;
   command: string;
@@ -54,9 +53,23 @@ export async function startSession({ command, cwd, name }: StartSessionInput): P
   };
 
   runtimeSessions.set(session.id, ptyProcess);
+  ptyProcess.onExit(() => {
+    runtimeSessions.delete(session.id);
+  });
 
   const sessions = await readSessions();
-  await writeSessions([...sessions, session]);
+
+  try {
+    await writeSessions([...sessions, session]);
+  } catch (error) {
+    try {
+      ptyProcess.kill();
+    } finally {
+      runtimeSessions.delete(session.id);
+    }
+
+    throw error;
+  }
 
   return session;
 }

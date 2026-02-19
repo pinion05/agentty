@@ -27,32 +27,44 @@ describe('sessionRuntime.startSession', () => {
   });
 
   it('start creates running session metadata in sessions.json', async () => {
-    const session = await startSession({
-      command: 'node -i',
-      cwd: process.cwd(),
-      name: 'test-session',
-    });
+    let pid: number | undefined;
 
-    expect(session.id).toEqual(expect.any(String));
-    expect(session.pid).toEqual(expect.any(Number));
-    expect(session.command).toBe('node -i');
-    expect(session.cwd).toBe(process.cwd());
-    expect(session.status).toBe('running');
-    expect(session.exitCode).toBeNull();
-    expect(session.startedAt).toEqual(expect.any(String));
-    expect(session.lastActiveAt).toEqual(expect.any(String));
+    try {
+      const session = await startSession({
+        command: 'sleep 30',
+        cwd: process.cwd(),
+        name: 'test-session',
+      });
 
-    const sessions = await readSessions();
-    expect(sessions).toHaveLength(1);
-    expect(sessions[0]).toMatchObject({
-      id: session.id,
-      pid: session.pid,
-      command: 'node -i',
-      cwd: process.cwd(),
-      status: 'running',
-      exitCode: null,
-    });
+      pid = session.pid;
 
-    process.kill(session.pid, 'SIGTERM');
+      expect(session.id).toEqual(expect.any(String));
+      expect(session.pid).toEqual(expect.any(Number));
+      expect(session.command).toBe('sleep 30');
+      expect(session.cwd).toBe(process.cwd());
+      expect(session.status).toBe('running');
+      expect(session.exitCode).toBeNull();
+      expect(session.startedAt).toEqual(expect.any(String));
+      expect(session.lastActiveAt).toEqual(expect.any(String));
+
+      const sessions = await readSessions();
+      expect(sessions).toHaveLength(1);
+      expect(sessions[0]).toMatchObject({
+        id: session.id,
+        pid: session.pid,
+        command: 'sleep 30',
+        cwd: process.cwd(),
+        status: 'running',
+        exitCode: null,
+      });
+    } finally {
+      if (pid !== undefined) {
+        try {
+          process.kill(pid, 'SIGTERM');
+        } catch {
+          // already exited
+        }
+      }
+    }
   });
 });
