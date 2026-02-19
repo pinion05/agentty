@@ -1,6 +1,7 @@
 # agentty
 
 Thin CLI for driving interactive terminal sessions from agents.
+AI agents can handle interactive CLIs here without getting stuck in pending states, just like they do with agent-browser.
 
 - npm package: `agentty-cli`
 - installed binary: `agentty`
@@ -9,8 +10,6 @@ Thin CLI for driving interactive terminal sessions from agents.
 
 ```bash
 npm i -g agentty-cli
-# or from local tarball
-npm i -g ./agentty-cli-*.tgz
 ```
 
 ## First check
