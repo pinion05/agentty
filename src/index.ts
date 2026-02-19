@@ -1,18 +1,9 @@
+import { buildHelpText, helpSchema } from './helpSchema';
 import { attachSession, resolveTargetSessionId } from './resolveSession';
 import { getSnapshot, killSession, sendKey, sendText } from './sessionRuntime';
+import { readSessions } from './state';
 
-const helpText = `agentty v0
-
-Commands:
-  help    Show help
-  status  Show runtime status
-  start   Start a session
-  attach  Set active session
-  get     Read output tail
-  text    Send text input
-  key     Send key input
-  kill    Kill a session
-`;
+const helpText = buildHelpText();
 
 interface SessionOptionResult {
   sessionId?: string;
@@ -21,6 +12,21 @@ interface SessionOptionResult {
 
 interface GetOptionResult extends SessionOptionResult {
   lines: number;
+}
+
+function parseJsonFlag(command: string, args: string[]): boolean {
+  let json = false;
+
+  for (const arg of args) {
+    if (arg === '--json') {
+      json = true;
+      continue;
+    }
+
+    throw new Error(`${command} does not accept positional arguments`);
+  }
+
+  return json;
 }
 
 function parseSessionOption(args: string[]): SessionOptionResult {
@@ -99,11 +105,81 @@ function parseGetOptions(args: string[]): GetOptionResult {
   };
 }
 
+function formatStatusText(sessions: Array<{ id: string; status?: unknown }>): string {
+  const runtime = {
+    pid: process.pid,
+    node: process.version,
+    cwd: process.cwd(),
+    platform: process.platform,
+  };
+
+  const lines = [
+    'runtime',
+    `  pid: ${runtime.pid}`,
+    `  node: ${runtime.node}`,
+    `  cwd: ${runtime.cwd}`,
+    `  platform: ${runtime.platform}`,
+    `sessions: ${sessions.length}`,
+  ];
+
+  if (sessions.length === 0) {
+    lines.push('  (none)');
+  } else {
+    for (const session of sessions) {
+      const status = typeof session.status === 'string' ? session.status : 'unknown';
+      lines.push(`  - ${session.id} (${status})`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
 async function main(): Promise<void> {
   const command = process.argv[2];
 
-  if (!command || command === 'help') {
+  if (!command) {
     console.log(helpText);
+    return;
+  }
+
+  if (command === 'help') {
+    const json = parseJsonFlag('help', process.argv.slice(3));
+
+    if (json) {
+      console.log(JSON.stringify(helpSchema, null, 2));
+      return;
+    }
+
+    console.log(helpText);
+    return;
+  }
+
+  if (command === 'status') {
+    const sessions = await readSessions();
+    const runtime = {
+      pid: process.pid,
+      node: process.version,
+      cwd: process.cwd(),
+      platform: process.platform,
+    };
+
+    const json = parseJsonFlag('status', process.argv.slice(3));
+
+    if (json) {
+      console.log(
+        JSON.stringify(
+          {
+            runtime,
+            sessions,
+          },
+          null,
+          2,
+        ),
+      );
+      return;
+    }
+
+    console.log(formatStatusText(sessions));
     return;
   }
 
