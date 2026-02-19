@@ -7,6 +7,7 @@
   },
   "scripts": {
     "build": "tsup",
+    "pretest": "npm run build",
     "test": "vitest run"
   },
   "devDependencies": {
