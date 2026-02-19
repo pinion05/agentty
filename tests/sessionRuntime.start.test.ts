@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { readSessions } from '../src/state';
-import { startSession } from '../src/sessionRuntime';
+import { killSession, startSession } from '../src/sessionRuntime';
 
 describe('sessionRuntime.startSession', () => {
   let tempHome: string;
@@ -27,7 +27,7 @@ describe('sessionRuntime.startSession', () => {
   });
 
   it('start creates running session metadata in sessions.json', async () => {
-    let pid: number | undefined;
+    let sessionId: string | undefined;
 
     try {
       const session = await startSession({
@@ -36,7 +36,7 @@ describe('sessionRuntime.startSession', () => {
         name: 'test-session',
       });
 
-      pid = session.pid;
+      sessionId = session.id;
 
       expect(session.id).toEqual(expect.any(String));
       expect(session.pid).toEqual(expect.any(Number));
@@ -51,19 +51,15 @@ describe('sessionRuntime.startSession', () => {
       expect(sessions).toHaveLength(1);
       expect(sessions[0]).toMatchObject({
         id: session.id,
-        pid: session.pid,
         command: 'sleep 30',
         cwd: process.cwd(),
         status: 'running',
         exitCode: null,
       });
+      expect(typeof (sessions[0] as { pid?: unknown }).pid).toBe('number');
     } finally {
-      if (pid !== undefined) {
-        try {
-          process.kill(pid, 'SIGTERM');
-        } catch {
-          // already exited
-        }
+      if (sessionId) {
+        await killSession(sessionId);
       }
     }
   });

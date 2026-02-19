@@ -6,30 +6,31 @@ describe('sessionRuntime.startSession cleanup on persistence failure', () => {
     vi.clearAllMocks();
   });
 
-  it('preserves the original writeSessions error when kill throws', async () => {
-    const persistenceError = new Error('writeSessions failed');
-    const killMock = vi.fn(() => {
-      throw new Error('kill failed');
-    });
+  it('preserves the original upsertSession error when process.kill throws', async () => {
+    const persistenceError = new Error('upsertSession failed');
+    const unrefMock = vi.fn();
     const spawnMock = vi.fn(() => ({
       pid: 12345,
-      onExit: vi.fn(),
-      kill: killMock,
+      unref: unrefMock,
     }));
 
-    const readSessionsMock = vi.fn(async () => []);
-    const writeSessionsMock = vi.fn(async () => {
-      throw persistenceError;
-    });
-
-    vi.doMock('node-pty', () => ({
+    vi.doMock('node:child_process', () => ({
       spawn: spawnMock,
     }));
 
     vi.doMock('../src/state', () => ({
-      readSessions: readSessionsMock,
-      writeSessions: writeSessionsMock,
+      getSessionSocketPath: vi.fn(() => '/tmp/mock.sock'),
+      upsertSession: vi.fn(async () => {
+        throw persistenceError;
+      }),
+      readSessionById: vi.fn(),
+      readActiveSessionId: vi.fn(),
+      writeActiveSessionId: vi.fn(),
     }));
+
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => {
+      throw new Error('kill failed');
+    });
 
     const { startSession } = await import('../src/sessionRuntime');
 
@@ -37,7 +38,7 @@ describe('sessionRuntime.startSession cleanup on persistence failure', () => {
       persistenceError,
     );
 
-    expect(writeSessionsMock).toHaveBeenCalledTimes(1);
-    expect(killMock).toHaveBeenCalledTimes(1);
+    expect(spawnMock).toHaveBeenCalledTimes(1);
+    expect(killSpy).toHaveBeenCalledWith(12345, 'SIGTERM');
   });
 });

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { execa } from 'execa';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { startSession, getSnapshot } from '../src/sessionRuntime';
+import { getSnapshot, killSession, startSession } from '../src/sessionRuntime';
 import { writeActiveSessionId } from '../src/state';
 
 async function waitForSnapshotContains(sessionId: string, needle: string): Promise<void> {
@@ -47,7 +47,7 @@ describe('get snapshot', () => {
   });
 
   it('getSnapshot returns text tail only with line limit', async () => {
-    let pid: number | undefined;
+    let sessionId: string | undefined;
 
     try {
       const session = await startSession({
@@ -55,18 +55,14 @@ describe('get snapshot', () => {
         cwd: process.cwd(),
       });
 
-      pid = session.pid;
+      sessionId = session.id;
 
       await waitForSnapshotContains(session.id, 'line-4');
 
       await expect(getSnapshot(session.id, 3)).resolves.toBe('line-2\nline-3\nline-4');
     } finally {
-      if (pid !== undefined) {
-        try {
-          process.kill(pid, 'SIGTERM');
-        } catch {
-          // already exited
-        }
+      if (sessionId) {
+        await killSession(sessionId);
       }
     }
   });

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { resolveKeyInput } from '../src/keymap';
-import { sendKey, sendText, startSession } from '../src/sessionRuntime';
+import { killSession, sendKey, sendText, startSession } from '../src/sessionRuntime';
 
 async function waitForFileContains(filePath: string, needle: string): Promise<string> {
   const timeoutMs = 5_000;
@@ -52,7 +52,7 @@ describe('input delivery', () => {
   });
 
   it('text writes plain string and key Enter sends CR', async () => {
-    let pid: number | undefined;
+    let sessionId: string | undefined;
 
     try {
       const outputPath = path.join(tempHome, 'stdin-capture.txt');
@@ -61,7 +61,7 @@ describe('input delivery', () => {
         cwd: process.cwd(),
       });
 
-      pid = session.pid;
+      sessionId = session.id;
 
       await sendText(session.id, 'print(2+2)');
       await sendKey(session.id, 'Enter');
@@ -69,12 +69,8 @@ describe('input delivery', () => {
       const contents = await waitForFileContains(outputPath, 'print(2+2)');
       expect(contents).toMatch(/print\(2\+2\)\r?\n/);
     } finally {
-      if (pid !== undefined) {
-        try {
-          process.kill(pid, 'SIGTERM');
-        } catch {
-          // already exited
-        }
+      if (sessionId) {
+        await killSession(sessionId);
       }
     }
   });

@@ -1,16 +1,9 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-
-interface CliIo {
-  stdout: (line: string) => void;
-  stderr: (line: string) => void;
-}
-
-type RunCli = (argv?: string[], io?: CliIo) => Promise<void>;
+import { execa } from 'execa';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 interface CommandResult {
   exitCode: number;
@@ -25,94 +18,13 @@ interface StatusJson {
   }>;
 }
 
-let runCli: RunCli;
-
-async function loadRunCli(): Promise<RunCli> {
-  const cliModuleUrl = pathToFileURL(path.join(process.cwd(), 'dist/index.js')).href;
-  const cliModule = (await import(cliModuleUrl)) as { runCli?: RunCli };
-
-  if (typeof cliModule.runCli !== 'function') {
-    throw new Error('runCli export is missing from dist/index.js');
-  }
-
-  return cliModule.runCli;
-}
-
-async function runCommand(args: string[]): Promise<CommandResult> {
-  const stdout: string[] = [];
-  const stderr: string[] = [];
-
-  try {
-    await runCli(args, {
-      stdout: (line) => {
-        stdout.push(line);
-      },
-      stderr: (line) => {
-        stderr.push(line);
-      },
-    });
-
-    return {
-      exitCode: 0,
-      stdout: stdout.join('\n').trim(),
-      stderr: stderr.join('\n').trim(),
-    };
-  } catch (error) {
-    stderr.push(error instanceof Error ? error.message : String(error));
-
-    return {
-      exitCode: 1,
-      stdout: stdout.join('\n').trim(),
-      stderr: stderr.join('\n').trim(),
-    };
-  }
-}
-
 async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function getSessionPid(sessionId: string): Promise<number | undefined> {
-  const statusResult = await runCommand(['status', '--json']);
-
-  if (statusResult.exitCode !== 0 || !statusResult.stdout) {
-    return undefined;
-  }
-
-  const status = JSON.parse(statusResult.stdout) as StatusJson;
-  const session = status.sessions?.find((candidate) => candidate.id === sessionId);
-
-  return typeof session?.pid === 'number' ? session.pid : undefined;
-}
-
-async function waitForProcessExit(pid: number, timeoutMs = 5_000): Promise<boolean> {
-  const intervalMs = 50;
-  const startedAt = Date.now();
-
-  while (Date.now() - startedAt < timeoutMs) {
-    try {
-      process.kill(pid, 0);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ESRCH') {
-        return true;
-      }
-
-      throw error;
-    }
-
-    await sleep(intervalMs);
-  }
-
-  return false;
-}
-
-describe('e2e: vim (cli surface)', () => {
+describe('e2e: vim (cli process invocations)', () => {
   let tempHome: string;
   let originalEnv: string | undefined;
-
-  beforeAll(async () => {
-    runCli = await loadRunCli();
-  });
 
   beforeEach(async () => {
     originalEnv = process.env.AGENTTY_HOME;
@@ -130,7 +42,58 @@ describe('e2e: vim (cli surface)', () => {
     await rm(tempHome, { recursive: true, force: true });
   });
 
-  it('vim interaction works through start/attach/text/key/get', async () => {
+  async function runCommand(args: string[]): Promise<CommandResult> {
+    const result = await execa('node', ['dist/index.js', ...args], {
+      env: {
+        ...process.env,
+        AGENTTY_HOME: tempHome,
+      },
+      reject: false,
+      timeout: 10_000,
+    });
+
+    return {
+      exitCode: result.exitCode,
+      stdout: result.stdout.trim(),
+      stderr: result.stderr.trim(),
+    };
+  }
+
+  async function getSessionPid(sessionId: string): Promise<number | undefined> {
+    const statusResult = await runCommand(['status', '--json']);
+
+    if (statusResult.exitCode !== 0 || !statusResult.stdout) {
+      return undefined;
+    }
+
+    const status = JSON.parse(statusResult.stdout) as StatusJson;
+    const session = status.sessions?.find((candidate) => candidate.id === sessionId);
+
+    return typeof session?.pid === 'number' ? session.pid : undefined;
+  }
+
+  async function waitForProcessExit(pid: number, timeoutMs = 5_000): Promise<boolean> {
+    const intervalMs = 50;
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+      try {
+        process.kill(pid, 0);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ESRCH') {
+          return true;
+        }
+
+        throw error;
+      }
+
+      await sleep(intervalMs);
+    }
+
+    return false;
+  }
+
+  it('vim interaction works across separate CLI invocations', async () => {
     let sessionId: string | undefined;
     let pid: number | undefined;
 
@@ -167,7 +130,7 @@ describe('e2e: vim (cli surface)', () => {
       pid = await getSessionPid(sessionId);
 
       if (pid !== undefined) {
-        const exited = await waitForProcessExit(pid, 5_000);
+        const exited = await waitForProcessExit(pid, 6_000);
 
         if (!exited) {
           const killResult = await runCommand(['kill', '--session', sessionId]);

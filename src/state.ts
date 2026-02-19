@@ -2,10 +2,11 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import type { ActiveSessionId, SessionRecordList } from './types';
+import type { ActiveSessionId, SessionRecord, SessionRecordList } from './types';
 
 const SESSIONS_FILE = 'sessions.json';
 const ACTIVE_SESSION_FILE = 'active-session-id';
+const SOCKETS_DIR = 'sockets';
 
 export function getStateRoot(): string {
   const overridden = process.env.AGENTTY_HOME?.trim();
@@ -25,8 +26,20 @@ function getActiveSessionPath(): string {
   return path.join(getStateRoot(), ACTIVE_SESSION_FILE);
 }
 
+export function getSocketsRoot(): string {
+  return path.join(getStateRoot(), SOCKETS_DIR);
+}
+
+export function getSessionSocketPath(sessionId: string): string {
+  return path.join(getSocketsRoot(), `${sessionId}.sock`);
+}
+
 async function ensureStateRoot(): Promise<void> {
   await mkdir(getStateRoot(), { recursive: true });
+}
+
+export async function ensureSocketsRoot(): Promise<void> {
+  await mkdir(getSocketsRoot(), { recursive: true });
 }
 
 function validateSessions(value: unknown): SessionRecordList {
@@ -75,6 +88,27 @@ export async function readSessions(): Promise<SessionRecordList> {
 export async function writeSessions(sessions: SessionRecordList): Promise<void> {
   await ensureStateRoot();
   await writeFile(getSessionsPath(), JSON.stringify(sessions, null, 2), 'utf8');
+}
+
+export async function readSessionById(sessionId: string): Promise<SessionRecord | undefined> {
+  const sessions = await readSessions();
+  return sessions.find((session) => session.id === sessionId);
+}
+
+export async function upsertSession(sessionRecord: SessionRecord): Promise<void> {
+  const sessions = await readSessions();
+  const index = sessions.findIndex((session) => session.id === sessionRecord.id);
+
+  if (index === -1) {
+    sessions.push(sessionRecord);
+  } else {
+    sessions[index] = {
+      ...sessions[index],
+      ...sessionRecord,
+    };
+  }
+
+  await writeSessions(sessions);
 }
 
 export async function readActiveSessionId(): Promise<ActiveSessionId> {

@@ -1,13 +1,15 @@
+import { access } from 'node:fs/promises';
+import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { spawn } from 'node:child_process';
 
-import { spawn, type IPty } from 'node-pty';
-
-import { resolveKeyInput } from './keymap';
+import { requestIpc } from './ipc';
 import {
+  getSessionSocketPath,
   readActiveSessionId,
-  readSessions,
+  readSessionById,
+  upsertSession,
   writeActiveSessionId,
-  writeSessions,
 } from './state';
 
 export interface StartSessionInput {
@@ -19,59 +21,58 @@ export interface StartSessionInput {
 export interface SessionMetadata {
   id: string;
   pid: number;
+  workerPid: number;
   command: string;
   cwd: string;
   startedAt: string;
   lastActiveAt: string;
   status: 'running' | 'exited';
   exitCode: number | null;
+  socketPath: string;
   name?: string;
 }
 
-const MAX_SNAPSHOT_CHARS = 200_000;
-const TERM_TIMEOUT_MS = 500;
-const KILL_TIMEOUT_MS = 2_000;
+const WORKER_ENTRY_PATH = path.resolve(__dirname, '../dist/worker.js');
+const KILL_WAIT_TIMEOUT_MS = 3_000;
+const KILL_WAIT_INTERVAL_MS = 50;
 
-const runtimeSessions = new Map<string, IPty>();
-const runtimeOutputBySession = new Map<string, string>();
-const runtimeExitBySession = new Map<string, Promise<number | null>>();
-const runtimeExitResolvers = new Map<string, (exitCode: number | null) => void>();
+function isUnavailableIpcError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException)?.code;
 
-function getRuntimeSession(sessionId: string): IPty {
-  const session = runtimeSessions.get(sessionId);
+  if (code === 'ENOENT' || code === 'ECONNREFUSED' || code === 'EPIPE' || code === 'ENOTCONN') {
+    return true;
+  }
 
-  if (!session) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  return message === 'IPC request timed out' || message === 'session is not running';
+}
+
+async function resolveRunningSession(sessionId: string): Promise<{ socketPath: string }> {
+  const session = await readSessionById(sessionId);
+
+  if (!session || session.status === 'exited' || typeof session.socketPath !== 'string') {
     throw new Error(`session is not running: ${sessionId}`);
   }
 
-  return session;
+  return {
+    socketPath: session.socketPath,
+  };
 }
 
-function cleanupRuntimeSession(sessionId: string): void {
-  runtimeSessions.delete(sessionId);
-  runtimeOutputBySession.delete(sessionId);
-  runtimeExitBySession.delete(sessionId);
-  runtimeExitResolvers.delete(sessionId);
-}
+async function markSessionExited(sessionId: string, exitCode: number | null): Promise<void> {
+  const session = await readSessionById(sessionId);
 
-async function updateKilledSessionMetadata(sessionId: string, exitCode: number | null): Promise<void> {
-  const sessions = await readSessions();
-  const now = new Date().toISOString();
+  if (!session) {
+    return;
+  }
 
-  const updatedSessions = sessions.map((session) => {
-    if (session.id !== sessionId) {
-      return session;
-    }
-
-    return {
-      ...session,
-      status: 'exited',
-      exitCode,
-      lastActiveAt: now,
-    };
+  await upsertSession({
+    ...session,
+    status: 'exited',
+    exitCode,
+    lastActiveAt: new Date().toISOString(),
   });
-
-  await writeSessions(updatedSessions);
 
   const activeSessionId = await readActiveSessionId();
 
@@ -80,168 +81,166 @@ async function updateKilledSessionMetadata(sessionId: string, exitCode: number |
   }
 }
 
-async function waitForExit(
-  exitPromise: Promise<number | null>,
-  timeoutMs: number,
-): Promise<{ timedOut: boolean; exitCode: number | null }> {
-  const timeoutToken = Symbol('timeout');
-  const result = await Promise.race<number | null | symbol>([
-    exitPromise,
-    new Promise<symbol>((resolve) => {
-      setTimeout(() => resolve(timeoutToken), timeoutMs);
-    }),
-  ]);
+async function waitForExited(sessionId: string): Promise<void> {
+  const deadline = Date.now() + KILL_WAIT_TIMEOUT_MS;
 
-  if (result === timeoutToken) {
-    return {
-      timedOut: true,
-      exitCode: null,
-    };
+  while (Date.now() < deadline) {
+    const session = await readSessionById(sessionId);
+
+    if (!session || session.status === 'exited') {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, KILL_WAIT_INTERVAL_MS));
   }
-
-  return {
-    timedOut: false,
-    exitCode: result,
-  };
 }
 
 export async function startSession({ command, cwd, name }: StartSessionInput): Promise<SessionMetadata> {
   const trimmedCommand = command.trim();
+
   if (!trimmedCommand) {
     throw new Error('command is required');
   }
 
-  const shell = process.env.SHELL || '/bin/bash';
-  const ptyProcess = spawn(shell, ['-lc', trimmedCommand], {
-    cwd,
-    env: process.env,
-    name: 'xterm-256color',
-    cols: 80,
-    rows: 24,
-  });
+  try {
+    await access(WORKER_ENTRY_PATH);
+  } catch {
+    throw new Error(`worker entry is missing: ${WORKER_ENTRY_PATH}`);
+  }
 
   const now = new Date().toISOString();
+  const sessionId = randomUUID();
+  const socketPath = getSessionSocketPath(sessionId);
+
+  const workerSpec = {
+    id: sessionId,
+    command: trimmedCommand,
+    cwd,
+    socketPath,
+    startedAt: now,
+    ...(name ? { name } : {}),
+  };
+
+  const child = spawn(process.execPath, [WORKER_ENTRY_PATH], {
+    detached: true,
+    stdio: 'ignore',
+    env: {
+      ...process.env,
+      AGENTTY_WORKER_SPEC: JSON.stringify(workerSpec),
+    },
+  });
+
+  if (!child.pid) {
+    throw new Error('failed to spawn session worker');
+  }
+
   const session: SessionMetadata = {
-    id: randomUUID(),
-    pid: ptyProcess.pid,
+    id: sessionId,
+    pid: child.pid,
+    workerPid: child.pid,
     command: trimmedCommand,
     cwd,
     startedAt: now,
     lastActiveAt: now,
     status: 'running',
     exitCode: null,
+    socketPath,
     ...(name ? { name } : {}),
   };
 
-  runtimeSessions.set(session.id, ptyProcess);
-  runtimeOutputBySession.set(session.id, '');
-
-  const exitPromise = new Promise<number | null>((resolve) => {
-    runtimeExitResolvers.set(session.id, resolve);
-  });
-  runtimeExitBySession.set(session.id, exitPromise);
-
-  ptyProcess.onData?.((chunk) => {
-    const normalizedChunk = chunk.replace(/\r/g, '');
-    const current = runtimeOutputBySession.get(session.id) ?? '';
-    const next = `${current}${normalizedChunk}`;
-
-    if (next.length > MAX_SNAPSHOT_CHARS) {
-      runtimeOutputBySession.set(session.id, next.slice(-MAX_SNAPSHOT_CHARS));
-      return;
-    }
-
-    runtimeOutputBySession.set(session.id, next);
-  });
-
-  ptyProcess.onExit(({ exitCode }) => {
-    const resolveExit = runtimeExitResolvers.get(session.id);
-
-    if (resolveExit) {
-      resolveExit(exitCode ?? null);
-    }
-
-    cleanupRuntimeSession(session.id);
-  });
-
-  const sessions = await readSessions();
-
   try {
-    await writeSessions([...sessions, session]);
+    await upsertSession(session);
   } catch (error) {
-    const originalError = error;
-
     try {
-      ptyProcess.kill();
+      process.kill(child.pid, 'SIGTERM');
     } catch {
-      // ignore cleanup errors to preserve the persistence failure
-    } finally {
-      cleanupRuntimeSession(session.id);
+      // ignore cleanup errors
     }
 
-    throw originalError;
+    throw error;
   }
+
+  child.unref();
 
   return session;
 }
 
 export async function sendText(sessionId: string, payload: string): Promise<void> {
-  const session = getRuntimeSession(sessionId);
-  session.write(payload);
+  const session = await resolveRunningSession(sessionId);
+
+  try {
+    await requestIpc(session.socketPath, {
+      method: 'text',
+      payload,
+    });
+  } catch (error) {
+    if (isUnavailableIpcError(error)) {
+      await markSessionExited(sessionId, null);
+      throw new Error(`session is not running: ${sessionId}`);
+    }
+
+    throw error;
+  }
 }
 
 export async function sendKey(sessionId: string, keyName: string): Promise<void> {
-  const session = getRuntimeSession(sessionId);
-  session.write(resolveKeyInput(keyName));
+  const session = await resolveRunningSession(sessionId);
+
+  try {
+    await requestIpc(session.socketPath, {
+      method: 'key',
+      keyName,
+    });
+  } catch (error) {
+    if (isUnavailableIpcError(error)) {
+      await markSessionExited(sessionId, null);
+      throw new Error(`session is not running: ${sessionId}`);
+    }
+
+    throw error;
+  }
 }
 
 export async function getSnapshot(sessionId: string, lines = 20): Promise<string> {
-  getRuntimeSession(sessionId);
+  const session = await resolveRunningSession(sessionId);
 
-  const requestedLines = Number.isFinite(lines) && lines > 0 ? Math.floor(lines) : 20;
-  const output = runtimeOutputBySession.get(sessionId) ?? '';
-  const parts = output.split('\n');
+  try {
+    const response = await requestIpc(session.socketPath, {
+      method: 'get',
+      lines,
+    });
 
-  if (parts[parts.length - 1] === '') {
-    parts.pop();
+    return typeof response === 'string' ? response : '';
+  } catch (error) {
+    if (isUnavailableIpcError(error)) {
+      await markSessionExited(sessionId, null);
+      throw new Error(`session is not running: ${sessionId}`);
+    }
+
+    throw error;
   }
-
-  return parts.slice(-requestedLines).join('\n');
 }
 
 export async function killSession(sessionId: string): Promise<void> {
-  const session = getRuntimeSession(sessionId);
-  const exitPromise = runtimeExitBySession.get(sessionId);
-  let exitCode: number | null = null;
+  const session = await resolveRunningSession(sessionId);
 
   try {
-    session.kill('SIGTERM');
-  } catch {
-    // continue to SIGKILL fallback
-  }
-
-  if (exitPromise) {
-    const termResult = await waitForExit(exitPromise, TERM_TIMEOUT_MS);
-
-    if (termResult.timedOut) {
-      try {
-        session.kill('SIGKILL');
-      } catch {
-        // ignore signal errors and continue metadata cleanup
-      }
-
-      const killResult = await waitForExit(exitPromise, KILL_TIMEOUT_MS);
-      exitCode = killResult.exitCode;
-
-      if (killResult.timedOut) {
-        cleanupRuntimeSession(sessionId);
-      }
-    } else {
-      exitCode = termResult.exitCode;
+    await requestIpc(session.socketPath, {
+      method: 'kill',
+    });
+    await waitForExited(sessionId);
+  } catch (error) {
+    if (isUnavailableIpcError(error)) {
+      await markSessionExited(sessionId, null);
+      throw new Error(`session is not running: ${sessionId}`);
     }
-  } else {
-    cleanupRuntimeSession(sessionId);
+
+    throw error;
   }
 
-  await updateKilledSessionMetadata(sessionId, exitCode);
+  const activeSessionId = await readActiveSessionId();
+
+  if (activeSessionId === sessionId) {
+    await writeActiveSessionId(null);
+  }
 }
