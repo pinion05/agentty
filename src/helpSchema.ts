@@ -71,5 +71,14 @@ export function buildHelpText(): string {
     .map(([name, definition]) => `  ${name.padEnd(7)}${definition.summary}`)
     .join('\n');
 
-  return `agentty v0\n\nCommands:\n${rows}\n`;
+  const examples = [
+    '  agentty start node -i  # or: agentty start python3 -i',
+    '  agentty attach <sessionId>',
+    '  agentty text "1 + 1"',
+    '  agentty key Enter',
+    '  agentty get --lines 20',
+    '  agentty kill',
+  ].join('\n');
+
+  return `agentty v0\n\nCommands:\n${rows}\n\nExamples:\n${examples}\n`;
 }
