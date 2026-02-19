@@ -37,3 +37,21 @@ agentty get --lines 20
 # 5) stop session
 agentty kill
 ```
+
+## Supported keys
+
+`agentty key <keyName>` supports:
+
+Special keys:
+- `Enter`
+- `Tab`
+- `Up`
+- `Down`
+- `Left`
+- `Right`
+- `Esc`
+- `Ctrl+C`
+- `Ctrl+D`
+
+Single-character keys:
+- Any 1-character key name is sent as-is (e.g. `i` for Vim insert mode, `:` for command mode, `q`, `!`, space, etc.).
