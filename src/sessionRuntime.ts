@@ -62,13 +62,17 @@ export async function startSession({ command, cwd, name }: StartSessionInput): P
   try {
     await writeSessions([...sessions, session]);
   } catch (error) {
+    const originalError = error;
+
     try {
       ptyProcess.kill();
+    } catch {
+      // ignore cleanup errors to preserve the persistence failure
     } finally {
       runtimeSessions.delete(session.id);
     }
 
-    throw error;
+    throw originalError;
   }
 
   return session;
