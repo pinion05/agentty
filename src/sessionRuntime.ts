@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { spawn, type IPty } from 'node-pty';
 
+import { resolveKeyInput } from './keymap';
 import { readSessions, writeSessions } from './state';
 
 export interface StartSessionInput {
@@ -23,6 +24,16 @@ export interface SessionMetadata {
 }
 
 const runtimeSessions = new Map<string, IPty>();
+
+function getRuntimeSession(sessionId: string): IPty {
+  const session = runtimeSessions.get(sessionId);
+
+  if (!session) {
+    throw new Error(`session is not running: ${sessionId}`);
+  }
+
+  return session;
+}
 
 export async function startSession({ command, cwd, name }: StartSessionInput): Promise<SessionMetadata> {
   const trimmedCommand = command.trim();
@@ -76,4 +87,14 @@ export async function startSession({ command, cwd, name }: StartSessionInput): P
   }
 
   return session;
+}
+
+export async function sendText(sessionId: string, payload: string): Promise<void> {
+  const session = getRuntimeSession(sessionId);
+  session.write(payload);
+}
+
+export async function sendKey(sessionId: string, keyName: string): Promise<void> {
+  const session = getRuntimeSession(sessionId);
+  session.write(resolveKeyInput(keyName));
 }

@@ -1,4 +1,5 @@
-import { attachSession } from './resolveSession';
+import { attachSession, resolveTargetSessionId } from './resolveSession';
+import { sendKey, sendText } from './sessionRuntime';
 
 const helpText = `agentty v0
 
@@ -12,6 +13,39 @@ Commands:
   key     Send key input
   kill    Kill a session
 `;
+
+interface SessionOptionResult {
+  sessionId?: string;
+  remaining: string[];
+}
+
+function parseSessionOption(args: string[]): SessionOptionResult {
+  const remaining: string[] = [];
+  let sessionId: string | undefined;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === '--session') {
+      const value = args[index + 1];
+
+      if (!value) {
+        throw new Error('--session requires a value');
+      }
+
+      sessionId = value;
+      index += 1;
+      continue;
+    }
+
+    remaining.push(arg);
+  }
+
+  return {
+    sessionId,
+    remaining,
+  };
+}
 
 async function main(): Promise<void> {
   const command = process.argv[2];
@@ -30,6 +64,31 @@ async function main(): Promise<void> {
 
     await attachSession(sessionId);
     console.log(sessionId);
+    return;
+  }
+
+  if (command === 'text') {
+    const { sessionId, remaining } = parseSessionOption(process.argv.slice(3));
+
+    if (remaining.length === 0) {
+      throw new Error('payload is required');
+    }
+
+    const targetSessionId = await resolveTargetSessionId(sessionId);
+    await sendText(targetSessionId, remaining.join(' '));
+    return;
+  }
+
+  if (command === 'key') {
+    const { sessionId, remaining } = parseSessionOption(process.argv.slice(3));
+    const keyName = remaining[0];
+
+    if (!keyName) {
+      throw new Error('keyName is required');
+    }
+
+    const targetSessionId = await resolveTargetSessionId(sessionId);
+    await sendKey(targetSessionId, keyName);
     return;
   }
 
