@@ -2,12 +2,15 @@
 
 Thin CLI for driving interactive terminal sessions from agents.
 
+- npm package: `agentty-cli`
+- installed binary: `agentty`
+
 ## Install
 
 ```bash
-npm i -g agentty
+npm i -g agentty-cli
 # or from local tarball
-npm i -g ./agentty-*.tgz
+npm i -g ./agentty-cli-*.tgz
 ```
 
 ## First check

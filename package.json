@@ -1,7 +1,6 @@
 {
-  "name": "agentty",
-  "version": "0.0.0",
-  "private": true,
+  "name": "agentty-cli",
+  "version": "0.0.1",
   "bin": {
     "agentty": "dist/index.js"
   },
