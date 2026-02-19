@@ -1,5 +1,5 @@
 import { attachSession, resolveTargetSessionId } from './resolveSession';
-import { getSnapshot, sendKey, sendText } from './sessionRuntime';
+import { getSnapshot, killSession, sendKey, sendText } from './sessionRuntime';
 
 const helpText = `agentty v0
 
@@ -157,6 +157,18 @@ async function main(): Promise<void> {
 
     const targetSessionId = await resolveTargetSessionId(sessionId);
     await sendKey(targetSessionId, remaining[0]);
+    return;
+  }
+
+  if (command === 'kill') {
+    const { sessionId, remaining } = parseSessionOption(process.argv.slice(3));
+
+    if (remaining.length > 0) {
+      throw new Error('kill does not accept positional arguments');
+    }
+
+    const targetSessionId = await resolveTargetSessionId(sessionId);
+    await killSession(targetSessionId);
     return;
   }
 

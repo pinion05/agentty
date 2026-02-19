@@ -3,7 +3,12 @@ import { randomUUID } from 'node:crypto';
 import { spawn, type IPty } from 'node-pty';
 
 import { resolveKeyInput } from './keymap';
-import { readSessions, writeSessions } from './state';
+import {
+  readActiveSessionId,
+  readSessions,
+  writeActiveSessionId,
+  writeSessions,
+} from './state';
 
 export interface StartSessionInput {
   command: string;
@@ -24,9 +29,13 @@ export interface SessionMetadata {
 }
 
 const MAX_SNAPSHOT_CHARS = 200_000;
+const TERM_TIMEOUT_MS = 500;
+const KILL_TIMEOUT_MS = 2_000;
 
 const runtimeSessions = new Map<string, IPty>();
 const runtimeOutputBySession = new Map<string, string>();
+const runtimeExitBySession = new Map<string, Promise<number | null>>();
+const runtimeExitResolvers = new Map<string, (exitCode: number | null) => void>();
 
 function getRuntimeSession(sessionId: string): IPty {
   const session = runtimeSessions.get(sessionId);
@@ -36,6 +45,64 @@ function getRuntimeSession(sessionId: string): IPty {
   }
 
   return session;
+}
+
+function cleanupRuntimeSession(sessionId: string): void {
+  runtimeSessions.delete(sessionId);
+  runtimeOutputBySession.delete(sessionId);
+  runtimeExitBySession.delete(sessionId);
+  runtimeExitResolvers.delete(sessionId);
+}
+
+async function updateKilledSessionMetadata(sessionId: string, exitCode: number | null): Promise<void> {
+  const sessions = await readSessions();
+  const now = new Date().toISOString();
+
+  const updatedSessions = sessions.map((session) => {
+    if (session.id !== sessionId) {
+      return session;
+    }
+
+    return {
+      ...session,
+      status: 'exited',
+      exitCode,
+      lastActiveAt: now,
+    };
+  });
+
+  await writeSessions(updatedSessions);
+
+  const activeSessionId = await readActiveSessionId();
+
+  if (activeSessionId === sessionId) {
+    await writeActiveSessionId(null);
+  }
+}
+
+async function waitForExit(
+  exitPromise: Promise<number | null>,
+  timeoutMs: number,
+): Promise<{ timedOut: boolean; exitCode: number | null }> {
+  const timeoutToken = Symbol('timeout');
+  const result = await Promise.race<number | null | symbol>([
+    exitPromise,
+    new Promise<symbol>((resolve) => {
+      setTimeout(() => resolve(timeoutToken), timeoutMs);
+    }),
+  ]);
+
+  if (result === timeoutToken) {
+    return {
+      timedOut: true,
+      exitCode: null,
+    };
+  }
+
+  return {
+    timedOut: false,
+    exitCode: result,
+  };
 }
 
 export async function startSession({ command, cwd, name }: StartSessionInput): Promise<SessionMetadata> {
@@ -69,6 +136,11 @@ export async function startSession({ command, cwd, name }: StartSessionInput): P
   runtimeSessions.set(session.id, ptyProcess);
   runtimeOutputBySession.set(session.id, '');
 
+  const exitPromise = new Promise<number | null>((resolve) => {
+    runtimeExitResolvers.set(session.id, resolve);
+  });
+  runtimeExitBySession.set(session.id, exitPromise);
+
   ptyProcess.onData?.((chunk) => {
     const normalizedChunk = chunk.replace(/\r/g, '');
     const current = runtimeOutputBySession.get(session.id) ?? '';
@@ -82,9 +154,14 @@ export async function startSession({ command, cwd, name }: StartSessionInput): P
     runtimeOutputBySession.set(session.id, next);
   });
 
-  ptyProcess.onExit(() => {
-    runtimeSessions.delete(session.id);
-    runtimeOutputBySession.delete(session.id);
+  ptyProcess.onExit(({ exitCode }) => {
+    const resolveExit = runtimeExitResolvers.get(session.id);
+
+    if (resolveExit) {
+      resolveExit(exitCode ?? null);
+    }
+
+    cleanupRuntimeSession(session.id);
   });
 
   const sessions = await readSessions();
@@ -99,8 +176,7 @@ export async function startSession({ command, cwd, name }: StartSessionInput): P
     } catch {
       // ignore cleanup errors to preserve the persistence failure
     } finally {
-      runtimeSessions.delete(session.id);
-      runtimeOutputBySession.delete(session.id);
+      cleanupRuntimeSession(session.id);
     }
 
     throw originalError;
@@ -131,4 +207,41 @@ export async function getSnapshot(sessionId: string, lines = 20): Promise<string
   }
 
   return parts.slice(-requestedLines).join('\n');
+}
+
+export async function killSession(sessionId: string): Promise<void> {
+  const session = getRuntimeSession(sessionId);
+  const exitPromise = runtimeExitBySession.get(sessionId);
+  let exitCode: number | null = null;
+
+  try {
+    session.kill('SIGTERM');
+  } catch {
+    // continue to SIGKILL fallback
+  }
+
+  if (exitPromise) {
+    const termResult = await waitForExit(exitPromise, TERM_TIMEOUT_MS);
+
+    if (termResult.timedOut) {
+      try {
+        session.kill('SIGKILL');
+      } catch {
+        // ignore signal errors and continue metadata cleanup
+      }
+
+      const killResult = await waitForExit(exitPromise, KILL_TIMEOUT_MS);
+      exitCode = killResult.exitCode;
+
+      if (killResult.timedOut) {
+        cleanupRuntimeSession(sessionId);
+      }
+    } else {
+      exitCode = termResult.exitCode;
+    }
+  } else {
+    cleanupRuntimeSession(sessionId);
+  }
+
+  await updateKilledSessionMetadata(sessionId, exitCode);
 }
