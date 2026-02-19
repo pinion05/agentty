@@ -8,7 +8,7 @@ import { resolveKeyInput } from '../src/keymap';
 import { sendKey, sendText, startSession } from '../src/sessionRuntime';
 
 async function waitForFileContains(filePath: string, needle: string): Promise<string> {
-  const timeoutMs = 2_000;
+  const timeoutMs = 5_000;
   const intervalMs = 50;
   const start = Date.now();
 

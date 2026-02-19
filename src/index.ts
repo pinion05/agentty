@@ -81,14 +81,13 @@ async function main(): Promise<void> {
 
   if (command === 'key') {
     const { sessionId, remaining } = parseSessionOption(process.argv.slice(3));
-    const keyName = remaining[0];
 
-    if (!keyName) {
-      throw new Error('keyName is required');
+    if (remaining.length !== 1) {
+      throw new Error('exactly one keyName is required');
     }
 
     const targetSessionId = await resolveTargetSessionId(sessionId);
-    await sendKey(targetSessionId, keyName);
+    await sendKey(targetSessionId, remaining[0]);
     return;
   }
 
