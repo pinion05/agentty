@@ -1,6 +1,6 @@
 import { buildHelpText, helpSchema } from './helpSchema';
 import { attachSession, resolveTargetSessionId } from './resolveSession';
-import { getSnapshot, killSession, sendKey, sendText } from './sessionRuntime';
+import { getSnapshot, killSession, sendKey, sendText, startSession } from './sessionRuntime';
 import { readSessions } from './state';
 
 const helpText = buildHelpText();
@@ -13,6 +13,26 @@ interface SessionOptionResult {
 interface GetOptionResult extends SessionOptionResult {
   lines: number;
 }
+
+interface StartOptionResult {
+  command: string;
+  cwd: string;
+  name?: string;
+}
+
+export interface CliIo {
+  stdout: (line: string) => void;
+  stderr: (line: string) => void;
+}
+
+const defaultCliIo: CliIo = {
+  stdout: (line) => {
+    console.log(line);
+  },
+  stderr: (line) => {
+    console.error(line);
+  },
+};
 
 function parseJsonFlag(command: string, args: string[]): boolean {
   let json = false;
@@ -105,6 +125,64 @@ function parseGetOptions(args: string[]): GetOptionResult {
   };
 }
 
+function parseStartOptions(args: string[]): StartOptionResult {
+  let cwd = process.cwd();
+  let name: string | undefined;
+  const commandParts: string[] = [];
+  let commandMode = false;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (commandMode) {
+      commandParts.push(arg);
+      continue;
+    }
+
+    if (arg === '--') {
+      commandMode = true;
+      continue;
+    }
+
+    if (arg === '--cwd') {
+      const value = args[index + 1];
+
+      if (!value) {
+        throw new Error('--cwd requires a value');
+      }
+
+      cwd = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--name') {
+      const value = args[index + 1];
+
+      if (!value) {
+        throw new Error('--name requires a value');
+      }
+
+      name = value;
+      index += 1;
+      continue;
+    }
+
+    commandMode = true;
+    commandParts.push(arg);
+  }
+
+  if (commandParts.length === 0) {
+    throw new Error('command is required');
+  }
+
+  return {
+    command: commandParts.join(' '),
+    cwd,
+    name,
+  };
+}
+
 function formatStatusText(sessions: Array<{ id: string; status?: unknown }>): string {
   const runtime = {
     pid: process.pid,
@@ -134,23 +212,23 @@ function formatStatusText(sessions: Array<{ id: string; status?: unknown }>): st
   return lines.join('\n');
 }
 
-async function main(): Promise<void> {
-  const command = process.argv[2];
+export async function runCli(argv: string[] = process.argv.slice(2), io: CliIo = defaultCliIo): Promise<void> {
+  const command = argv[0];
 
   if (!command) {
-    console.log(helpText);
+    io.stdout(helpText);
     return;
   }
 
   if (command === 'help') {
-    const json = parseJsonFlag('help', process.argv.slice(3));
+    const json = parseJsonFlag('help', argv.slice(1));
 
     if (json) {
-      console.log(JSON.stringify(helpSchema, null, 2));
+      io.stdout(JSON.stringify(helpSchema, null, 2));
       return;
     }
 
-    console.log(helpText);
+    io.stdout(helpText);
     return;
   }
 
@@ -163,10 +241,10 @@ async function main(): Promise<void> {
       platform: process.platform,
     };
 
-    const json = parseJsonFlag('status', process.argv.slice(3));
+    const json = parseJsonFlag('status', argv.slice(1));
 
     if (json) {
-      console.log(
+      io.stdout(
         JSON.stringify(
           {
             runtime,
@@ -179,24 +257,32 @@ async function main(): Promise<void> {
       return;
     }
 
-    console.log(formatStatusText(sessions));
+    io.stdout(formatStatusText(sessions));
+    return;
+  }
+
+  if (command === 'start') {
+    const { command: startCommand, cwd, name } = parseStartOptions(argv.slice(1));
+    const session = await startSession({ command: startCommand, cwd, name });
+
+    io.stdout(session.id);
     return;
   }
 
   if (command === 'attach') {
-    const sessionId = process.argv[3];
+    const sessionId = argv[1];
 
     if (!sessionId) {
       throw new Error('sessionId is required');
     }
 
     await attachSession(sessionId);
-    console.log(sessionId);
+    io.stdout(sessionId);
     return;
   }
 
   if (command === 'get') {
-    const { sessionId, lines, remaining } = parseGetOptions(process.argv.slice(3));
+    const { sessionId, lines, remaining } = parseGetOptions(argv.slice(1));
 
     if (remaining.length > 0) {
       throw new Error('get does not accept positional arguments');
@@ -206,14 +292,14 @@ async function main(): Promise<void> {
     const snapshot = await getSnapshot(targetSessionId, lines);
 
     if (snapshot.length > 0) {
-      console.log(snapshot);
+      io.stdout(snapshot);
     }
 
     return;
   }
 
   if (command === 'text') {
-    const { sessionId, remaining } = parseSessionOption(process.argv.slice(3));
+    const { sessionId, remaining } = parseSessionOption(argv.slice(1));
 
     if (remaining.length === 0) {
       throw new Error('payload is required');
@@ -225,7 +311,7 @@ async function main(): Promise<void> {
   }
 
   if (command === 'key') {
-    const { sessionId, remaining } = parseSessionOption(process.argv.slice(3));
+    const { sessionId, remaining } = parseSessionOption(argv.slice(1));
 
     if (remaining.length !== 1) {
       throw new Error('exactly one keyName is required');
@@ -237,7 +323,7 @@ async function main(): Promise<void> {
   }
 
   if (command === 'kill') {
-    const { sessionId, remaining } = parseSessionOption(process.argv.slice(3));
+    const { sessionId, remaining } = parseSessionOption(argv.slice(1));
 
     if (remaining.length > 0) {
       throw new Error('kill does not accept positional arguments');
@@ -251,12 +337,14 @@ async function main(): Promise<void> {
   throw new Error(`Unknown command: ${command}`);
 }
 
-main().catch((error) => {
-  if (error instanceof Error) {
-    console.error(error.message);
-  } else {
-    console.error(String(error));
-  }
+if (require.main === module) {
+  runCli().catch((error) => {
+    if (error instanceof Error) {
+      console.error(error.message);
+    } else {
+      console.error(String(error));
+    }
 
-  process.exit(1);
-});
+    process.exit(1);
+  });
+}

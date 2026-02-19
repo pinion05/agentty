@@ -1,11 +1,107 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { attachSession, resolveTargetSessionId } from '../src/resolveSession';
-import { getSnapshot, killSession, sendKey, sendText, startSession, type SessionMetadata } from '../src/sessionRuntime';
+interface CliIo {
+  stdout: (line: string) => void;
+  stderr: (line: string) => void;
+}
+
+type RunCli = (argv?: string[], io?: CliIo) => Promise<void>;
+
+interface CommandResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}
+
+interface StatusJson {
+  sessions?: Array<{
+    id?: string;
+    pid?: number;
+  }>;
+}
+
+let runCli: RunCli;
+
+async function loadRunCli(): Promise<RunCli> {
+  const cliModuleUrl = pathToFileURL(path.join(process.cwd(), 'dist/index.js')).href;
+  const cliModule = (await import(cliModuleUrl)) as { runCli?: RunCli };
+
+  if (typeof cliModule.runCli !== 'function') {
+    throw new Error('runCli export is missing from dist/index.js');
+  }
+
+  return cliModule.runCli;
+}
+
+async function runCommand(args: string[]): Promise<CommandResult> {
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+
+  try {
+    await runCli(args, {
+      stdout: (line) => {
+        stdout.push(line);
+      },
+      stderr: (line) => {
+        stderr.push(line);
+      },
+    });
+
+    return {
+      exitCode: 0,
+      stdout: stdout.join('\n').trim(),
+      stderr: stderr.join('\n').trim(),
+    };
+  } catch (error) {
+    stderr.push(error instanceof Error ? error.message : String(error));
+
+    return {
+      exitCode: 1,
+      stdout: stdout.join('\n').trim(),
+      stderr: stderr.join('\n').trim(),
+    };
+  }
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForSnapshotContains(sessionId: string, needle: RegExp): Promise<string> {
+  const timeoutMs = 8_000;
+  const intervalMs = 50;
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const result = await runCommand(['get', '--session', sessionId, '--lines', '200']);
+
+    if (result.exitCode === 0 && needle.test(result.stdout)) {
+      return result.stdout;
+    }
+
+    await sleep(intervalMs);
+  }
+
+  throw new Error(`Timed out waiting for snapshot to match ${needle}`);
+}
+
+async function getSessionPid(sessionId: string): Promise<number | undefined> {
+  const statusResult = await runCommand(['status', '--json']);
+
+  if (statusResult.exitCode !== 0 || !statusResult.stdout) {
+    return undefined;
+  }
+
+  const status = JSON.parse(statusResult.stdout) as StatusJson;
+  const session = status.sessions?.find((candidate) => candidate.id === sessionId);
+
+  return typeof session?.pid === 'number' ? session.pid : undefined;
+}
 
 async function waitForProcessExit(pid: number, timeoutMs = 5_000): Promise<boolean> {
   const intervalMs = 50;
@@ -22,55 +118,19 @@ async function waitForProcessExit(pid: number, timeoutMs = 5_000): Promise<boole
       throw error;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    await sleep(intervalMs);
   }
 
   return false;
 }
 
-async function waitForSnapshotContains(sessionId: string, needle: RegExp): Promise<string> {
-  const timeoutMs = 8_000;
-  const intervalMs = 50;
-  const startedAt = Date.now();
-
-  while (Date.now() - startedAt < timeoutMs) {
-    const snapshot = await getSnapshot(sessionId, 200);
-
-    if (needle.test(snapshot)) {
-      return snapshot;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
-  }
-
-  throw new Error(`Timed out waiting for snapshot to match ${needle}`);
-}
-
-async function cleanupSession(session: SessionMetadata | undefined): Promise<void> {
-  if (!session) {
-    return;
-  }
-
-  const stillRunning = await waitForProcessExit(session.pid, 100);
-
-  if (!stillRunning) {
-    try {
-      await killSession(session.id);
-    } catch {
-      try {
-        process.kill(session.pid, 'SIGKILL');
-      } catch {
-        // already exited
-      }
-    }
-
-    await waitForProcessExit(session.pid, 2_000);
-  }
-}
-
-describe('e2e: python repl', () => {
+describe('e2e: python repl (cli surface)', () => {
   let tempHome: string;
   let originalEnv: string | undefined;
+
+  beforeAll(async () => {
+    runCli = await loadRunCli();
+  });
 
   beforeEach(async () => {
     originalEnv = process.env.AGENTTY_HOME;
@@ -88,34 +148,60 @@ describe('e2e: python repl', () => {
     await rm(tempHome, { recursive: true, force: true });
   });
 
-  it('python repl interaction works end-to-end', async () => {
-    let session: SessionMetadata | undefined;
+  it('python repl interaction works through start/attach/text/key/get', async () => {
+    let sessionId: string | undefined;
+    let pid: number | undefined;
 
     try {
-      session = await startSession({
-        command: 'python3 -i',
-        cwd: process.cwd(),
-      });
+      const startResult = await runCommand(['start', 'python3', '-i']);
 
-      await attachSession(session.id);
-      const targetSessionId = await resolveTargetSessionId();
+      expect(startResult.exitCode).toBe(0);
+      sessionId = startResult.stdout;
+      expect(sessionId).toBeTruthy();
 
-      await sendText(targetSessionId, 'print(2+2)');
-      await sendKey(targetSessionId, 'Enter');
+      const attachResult = await runCommand(['attach', sessionId]);
+      expect(attachResult.exitCode).toBe(0);
+      expect(attachResult.stdout).toBe(sessionId);
 
-      const snapshot = await waitForSnapshotContains(targetSessionId, /(^|\n)4(\n|$)/);
+      const textResult = await runCommand(['text', '--session', sessionId, 'print(2+2)']);
+      expect(textResult.exitCode).toBe(0);
+
+      const enterResult = await runCommand(['key', '--session', sessionId, 'Enter']);
+      expect(enterResult.exitCode).toBe(0);
+
+      const snapshot = await waitForSnapshotContains(sessionId, /(^|\n)4(\n|$)/);
       expect(snapshot).toContain('4');
 
-      await sendKey(targetSessionId, 'Ctrl+D');
+      pid = await getSessionPid(sessionId);
 
-      const exited = await waitForProcessExit(session.pid, 2_000);
+      const ctrlDResult = await runCommand(['key', '--session', sessionId, 'Ctrl+D']);
+      expect(ctrlDResult.exitCode).toBe(0);
 
-      if (!exited) {
-        await killSession(session.id);
-        expect(await waitForProcessExit(session.pid, 5_000)).toBe(true);
+      if (pid !== undefined) {
+        const exited = await waitForProcessExit(pid, 2_000);
+
+        if (!exited) {
+          const killResult = await runCommand(['kill', '--session', sessionId]);
+          expect(killResult.exitCode).toBe(0);
+          expect(await waitForProcessExit(pid, 5_000)).toBe(true);
+        }
       }
     } finally {
-      await cleanupSession(session);
+      if (sessionId) {
+        await runCommand(['kill', '--session', sessionId]);
+      }
+
+      if (pid !== undefined) {
+        const exited = await waitForProcessExit(pid, 500);
+
+        if (!exited) {
+          try {
+            process.kill(pid, 'SIGKILL');
+          } catch {
+            // already exited
+          }
+        }
+      }
     }
   });
 });
