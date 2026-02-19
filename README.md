@@ -20,10 +20,10 @@ agentty status --json
 
 ```bash
 # 1) start a session (example: Python REPL)
-agentty start --command "python3 -i" --name py
+agentty start --name py -- python3 -i
 
 # 2) attach active session pointer
-agentty attach --session <sessionId>
+agentty attach <sessionId>
 
 # 3) send input
 agentty text "print(2+2)"
