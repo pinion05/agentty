@@ -1,5 +1,5 @@
 import { attachSession, resolveTargetSessionId } from './resolveSession';
-import { sendKey, sendText } from './sessionRuntime';
+import { getSnapshot, sendKey, sendText } from './sessionRuntime';
 
 const helpText = `agentty v0
 
@@ -17,6 +17,10 @@ Commands:
 interface SessionOptionResult {
   sessionId?: string;
   remaining: string[];
+}
+
+interface GetOptionResult extends SessionOptionResult {
+  lines: number;
 }
 
 function parseSessionOption(args: string[]): SessionOptionResult {
@@ -47,6 +51,54 @@ function parseSessionOption(args: string[]): SessionOptionResult {
   };
 }
 
+function parseGetOptions(args: string[]): GetOptionResult {
+  const remaining: string[] = [];
+  let sessionId: string | undefined;
+  let lines = 20;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === '--session') {
+      const value = args[index + 1];
+
+      if (!value) {
+        throw new Error('--session requires a value');
+      }
+
+      sessionId = value;
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--lines') {
+      const value = args[index + 1];
+
+      if (!value) {
+        throw new Error('--lines requires a value');
+      }
+
+      const parsed = Number.parseInt(value, 10);
+
+      if (!Number.isInteger(parsed) || parsed <= 0) {
+        throw new Error('--lines must be a positive integer');
+      }
+
+      lines = parsed;
+      index += 1;
+      continue;
+    }
+
+    remaining.push(arg);
+  }
+
+  return {
+    sessionId,
+    lines,
+    remaining,
+  };
+}
+
 async function main(): Promise<void> {
   const command = process.argv[2];
 
@@ -64,6 +116,23 @@ async function main(): Promise<void> {
 
     await attachSession(sessionId);
     console.log(sessionId);
+    return;
+  }
+
+  if (command === 'get') {
+    const { sessionId, lines, remaining } = parseGetOptions(process.argv.slice(3));
+
+    if (remaining.length > 0) {
+      throw new Error('get does not accept positional arguments');
+    }
+
+    const targetSessionId = await resolveTargetSessionId(sessionId);
+    const snapshot = await getSnapshot(targetSessionId, lines);
+
+    if (snapshot.length > 0) {
+      console.log(snapshot);
+    }
+
     return;
   }
 

@@ -23,7 +23,10 @@ export interface SessionMetadata {
   name?: string;
 }
 
+const MAX_SNAPSHOT_CHARS = 200_000;
+
 const runtimeSessions = new Map<string, IPty>();
+const runtimeOutputBySession = new Map<string, string>();
 
 function getRuntimeSession(sessionId: string): IPty {
   const session = runtimeSessions.get(sessionId);
@@ -64,8 +67,24 @@ export async function startSession({ command, cwd, name }: StartSessionInput): P
   };
 
   runtimeSessions.set(session.id, ptyProcess);
+  runtimeOutputBySession.set(session.id, '');
+
+  ptyProcess.onData?.((chunk) => {
+    const normalizedChunk = chunk.replace(/\r/g, '');
+    const current = runtimeOutputBySession.get(session.id) ?? '';
+    const next = `${current}${normalizedChunk}`;
+
+    if (next.length > MAX_SNAPSHOT_CHARS) {
+      runtimeOutputBySession.set(session.id, next.slice(-MAX_SNAPSHOT_CHARS));
+      return;
+    }
+
+    runtimeOutputBySession.set(session.id, next);
+  });
+
   ptyProcess.onExit(() => {
     runtimeSessions.delete(session.id);
+    runtimeOutputBySession.delete(session.id);
   });
 
   const sessions = await readSessions();
@@ -81,6 +100,7 @@ export async function startSession({ command, cwd, name }: StartSessionInput): P
       // ignore cleanup errors to preserve the persistence failure
     } finally {
       runtimeSessions.delete(session.id);
+      runtimeOutputBySession.delete(session.id);
     }
 
     throw originalError;
@@ -97,4 +117,18 @@ export async function sendText(sessionId: string, payload: string): Promise<void
 export async function sendKey(sessionId: string, keyName: string): Promise<void> {
   const session = getRuntimeSession(sessionId);
   session.write(resolveKeyInput(keyName));
+}
+
+export async function getSnapshot(sessionId: string, lines = 20): Promise<string> {
+  getRuntimeSession(sessionId);
+
+  const requestedLines = Number.isFinite(lines) && lines > 0 ? Math.floor(lines) : 20;
+  const output = runtimeOutputBySession.get(sessionId) ?? '';
+  const parts = output.split('\n');
+
+  if (parts[parts.length - 1] === '') {
+    parts.pop();
+  }
+
+  return parts.slice(-requestedLines).join('\n');
 }
