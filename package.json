@@ -1,0 +1,19 @@
+{
+  "name": "agentty",
+  "version": "0.0.0",
+  "private": true,
+  "bin": {
+    "agentty": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "execa": "^9.5.2",
+    "tsup": "^8.4.0",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
