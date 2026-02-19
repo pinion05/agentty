@@ -80,5 +80,7 @@ export function buildHelpText(): string {
     '  agentty kill',
   ].join('\n');
 
-  return `agentty v0\n\nCommands:\n${rows}\n\nExamples:\n${examples}\n`;
+  const supportedKeys = 'Enter, Tab, Up, Down, Left, Right, Esc, Ctrl+C, Ctrl+D';
+
+  return `agentty v0\n\nCommands:\n${rows}\n\nExamples:\n${examples}\n\nSupported keys (agentty key <keyName>):\n  Special keys: ${supportedKeys}\n  Single-character key names are accepted and sent as-is.\n`;
 }
