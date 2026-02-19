@@ -13,9 +13,13 @@ const KEY_MAP: Record<string, string> = {
 export function resolveKeyInput(keyName: string): string {
   const input = KEY_MAP[keyName];
 
-  if (!input) {
-    throw new Error(`Unsupported key: ${keyName}`);
+  if (input) {
+    return input;
   }
 
-  return input;
+  if (keyName.length === 1) {
+    return keyName;
+  }
+
+  throw new Error(`Unsupported key: ${keyName}`);
 }
