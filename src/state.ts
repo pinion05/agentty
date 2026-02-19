@@ -29,16 +29,40 @@ async function ensureStateRoot(): Promise<void> {
   await mkdir(getStateRoot(), { recursive: true });
 }
 
+function validateSessions(value: unknown): SessionRecordList {
+  if (!Array.isArray(value)) {
+    throw new Error('Invalid sessions.json: expected an array');
+  }
+
+  for (const session of value) {
+    if (
+      typeof session !== 'object' ||
+      session === null ||
+      typeof (session as { id?: unknown }).id !== 'string'
+    ) {
+      throw new Error('Invalid sessions.json: each session must be an object with string id');
+    }
+  }
+
+  return value as SessionRecordList;
+}
+
 export async function readSessions(): Promise<SessionRecordList> {
   try {
     const raw = await readFile(getSessionsPath(), 'utf8');
-    const parsed: unknown = JSON.parse(raw);
 
-    if (!Array.isArray(parsed)) {
-      throw new Error('sessions.json must contain a JSON array');
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        throw new Error('Invalid sessions.json: malformed JSON');
+      }
+
+      throw error;
     }
 
-    return parsed as SessionRecordList;
+    return validateSessions(parsed);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return [];

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -46,6 +46,33 @@ describe('state', () => {
 
     const fileText = await readFile(path.join(tempHome, 'sessions.json'), 'utf8');
     expect(JSON.parse(fileText)).toEqual(sessions);
+  });
+
+  it('throws a clear error when sessions.json is malformed JSON', async () => {
+    await writeFile(path.join(tempHome, 'sessions.json'), '{ not valid json', 'utf8');
+
+    await expect(readSessions()).rejects.toThrow('Invalid sessions.json: malformed JSON');
+  });
+
+  it('throws a clear error when sessions.json is not an array', async () => {
+    await writeFile(path.join(tempHome, 'sessions.json'), JSON.stringify({ id: 's1' }), 'utf8');
+
+    await expect(readSessions()).rejects.toThrow('Invalid sessions.json: expected an array');
+  });
+
+  it('throws a clear error when sessions.json has invalid session shapes', async () => {
+    const invalidCases = [
+      [null],
+      ['session'],
+      [{}],
+      [{ id: 123 }],
+    ];
+
+    for (const content of invalidCases) {
+      await writeFile(path.join(tempHome, 'sessions.json'), JSON.stringify(content), 'utf8');
+
+      await expect(readSessions()).rejects.toThrow('Invalid sessions.json: each session must be an object with string id');
+    }
   });
 
   it('returns empty sessions and null active session when files are missing', async () => {
