@@ -5,6 +5,9 @@
   "bin": {
     "agentty": "dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "pretest": "npm run build",
