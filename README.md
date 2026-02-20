@@ -45,6 +45,8 @@ If `agentty start` fails before a socket appears, check the worker log:
 - default: `~/.agentty/logs/<sessionId>.log`
 - custom home (`AGENTTY_HOME`): `$AGENTTY_HOME/logs/<sessionId>.log`
 
+macOS note: if you previously saw `posix_spawnp failed` from `node-pty` startup, update to `agentty-cli >= 0.0.5` (agentty now self-heals by chmodding `spawn-helper` at runtime).
+
 ## Supported keys
 
 `agentty key <keyName>` supports:

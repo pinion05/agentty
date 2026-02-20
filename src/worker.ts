@@ -1,5 +1,6 @@
 import net from 'node:net';
-import { rm } from 'node:fs/promises';
+import path from 'node:path';
+import { chmod, rm, stat } from 'node:fs/promises';
 
 import { spawn, type IPty } from 'node-pty';
 
@@ -271,6 +272,57 @@ async function cleanupSocket(socketPath: string): Promise<void> {
   await rm(socketPath, { force: true });
 }
 
+async function ensureNodePtySpawnHelperExecutable(): Promise<void> {
+  if (process.platform !== 'darwin') {
+    return;
+  }
+
+  let nodePtyRoot: string;
+
+  try {
+    nodePtyRoot = path.dirname(require.resolve('node-pty/package.json'));
+  } catch (error) {
+    console.warn('[agentty worker] could not resolve node-pty root for spawn-helper check:', error);
+    return;
+  }
+
+  const spawnHelperPaths = [
+    path.join(nodePtyRoot, 'prebuilds', `${process.platform}-${process.arch}`, 'spawn-helper'),
+    path.join(nodePtyRoot, 'build', 'Release', 'spawn-helper'),
+  ];
+
+  for (const spawnHelperPath of spawnHelperPaths) {
+    let helperStat;
+
+    try {
+      helperStat = await stat(spawnHelperPath);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+
+      if (code !== 'ENOENT') {
+        console.warn(`[agentty worker] could not inspect spawn-helper at ${spawnHelperPath}:`, error);
+      }
+
+      continue;
+    }
+
+    if (!helperStat.isFile()) {
+      continue;
+    }
+
+    if ((helperStat.mode & 0o111) !== 0) {
+      return;
+    }
+
+    try {
+      await chmod(spawnHelperPath, 0o755);
+      return;
+    } catch (error) {
+      console.warn(`[agentty worker] could not chmod spawn-helper at ${spawnHelperPath}:`, error);
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const spec = parseWorkerSpec();
   const shell = process.env.SHELL || '/bin/bash';
@@ -287,6 +339,8 @@ async function main(): Promise<void> {
       resolve();
     });
   });
+
+  await ensureNodePtySpawnHelperExecutable();
 
   ptyProcess = spawn(shell, ['-lc', spec.command], {
     cwd: spec.cwd,
