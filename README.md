@@ -38,6 +38,13 @@ agentty get --lines 20
 agentty kill
 ```
 
+## Troubleshooting
+
+If `agentty start` fails before a socket appears, check the worker log:
+
+- default: `~/.agentty/logs/<sessionId>.log`
+- custom home (`AGENTTY_HOME`): `$AGENTTY_HOME/logs/<sessionId>.log`
+
 ## Supported keys
 
 `agentty key <keyName>` supports:

@@ -254,7 +254,13 @@ function startServer(spec: WorkerSpec): net.Server {
     });
   });
 
-  ipcServer.on('error', () => {
+  ipcServer.on('error', (error) => {
+    if (!ipcServer.listening) {
+      console.error(`[agentty worker] failed to listen on socket ${spec.socketPath}:`, error);
+    } else {
+      console.error('[agentty worker] IPC server error:', error);
+    }
+
     process.exitCode = 1;
   });
 
@@ -322,7 +328,9 @@ async function main(): Promise<void> {
   process.on('SIGINT', shutdown);
 }
 
-main().catch(async () => {
+main().catch(async (error) => {
+  console.error('[agentty worker] startup failed:', error);
+
   try {
     const spec = parseWorkerSpec();
     await cleanupSocket(spec.socketPath);

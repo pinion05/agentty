@@ -1,4 +1,4 @@
-import { access } from 'node:fs/promises';
+import { access, mkdir, open } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process';
 import { requestIpc } from './ipc';
 import {
   getSessionSocketPath,
+  getStateRoot,
   readActiveSessionId,
   readSessionById,
   upsertSession,
@@ -33,8 +34,11 @@ export interface SessionMetadata {
 }
 
 const WORKER_ENTRY_PATH = path.resolve(__dirname, '../dist/worker.js');
+const LOGS_DIR = 'logs';
 const KILL_WAIT_TIMEOUT_MS = 3_000;
 const KILL_WAIT_INTERVAL_MS = 50;
+const SOCKET_READY_TIMEOUT_MS = 1_000;
+const SOCKET_READY_POLL_INTERVAL_MS = 50;
 
 function isUnavailableIpcError(error: unknown): boolean {
   const code = (error as NodeJS.ErrnoException)?.code;
@@ -95,6 +99,36 @@ async function waitForExited(sessionId: string): Promise<void> {
   }
 }
 
+function getWorkerLogPath(sessionId: string): string {
+  return path.join(getStateRoot(), LOGS_DIR, `${sessionId}.log`);
+}
+
+async function waitForSocketReady(socketPath: string, didWorkerExit: () => boolean): Promise<boolean> {
+  const deadline = Date.now() + SOCKET_READY_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    try {
+      await access(socketPath);
+      return true;
+    } catch {
+      // continue polling
+    }
+
+    if (didWorkerExit()) {
+      break;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, SOCKET_READY_POLL_INTERVAL_MS));
+  }
+
+  try {
+    await access(socketPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function startSession({ command, cwd, name }: StartSessionInput): Promise<SessionMetadata> {
   const trimmedCommand = command.trim();
 
@@ -121,18 +155,41 @@ export async function startSession({ command, cwd, name }: StartSessionInput): P
     ...(name ? { name } : {}),
   };
 
-  const child = spawn(process.execPath, [WORKER_ENTRY_PATH], {
-    detached: true,
-    stdio: 'ignore',
-    env: {
-      ...process.env,
-      AGENTTY_WORKER_SPEC: JSON.stringify(workerSpec),
-    },
-  });
+  const logsRoot = path.join(getStateRoot(), LOGS_DIR);
+  await mkdir(logsRoot, { recursive: true });
+
+  const logFilePath = getWorkerLogPath(sessionId);
+  const logFile = await open(logFilePath, 'a');
+
+  let child: ReturnType<typeof spawn>;
+  try {
+    child = spawn(process.execPath, [WORKER_ENTRY_PATH], {
+      detached: true,
+      stdio: ['ignore', logFile.fd, logFile.fd],
+      env: {
+        ...process.env,
+        AGENTTY_WORKER_SPEC: JSON.stringify(workerSpec),
+      },
+    });
+  } finally {
+    await logFile.close();
+  }
 
   if (!child.pid) {
     throw new Error('failed to spawn session worker');
   }
+
+  let workerExited = false;
+  let workerExitCode: number | null = null;
+
+  child.once('exit', (code) => {
+    workerExited = true;
+    workerExitCode = code ?? null;
+  });
+
+  child.once('error', () => {
+    workerExited = true;
+  });
 
   const session: SessionMetadata = {
     id: sessionId,
@@ -158,6 +215,22 @@ export async function startSession({ command, cwd, name }: StartSessionInput): P
     }
 
     throw error;
+  }
+
+  const socketReady = await waitForSocketReady(socketPath, () => workerExited);
+
+  if (!socketReady) {
+    try {
+      process.kill(child.pid, 'SIGTERM');
+    } catch {
+      // ignore cleanup errors
+    }
+
+    await markSessionExited(sessionId, workerExitCode);
+
+    throw new Error(
+      `session worker failed to start (socket was not created within ${SOCKET_READY_TIMEOUT_MS}ms): ${socketPath}. Check worker log: ${logFilePath}`,
+    );
   }
 
   child.unref();

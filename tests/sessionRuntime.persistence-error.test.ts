@@ -9,9 +9,11 @@ describe('sessionRuntime.startSession cleanup on persistence failure', () => {
   it('preserves the original upsertSession error when process.kill throws', async () => {
     const persistenceError = new Error('upsertSession failed');
     const unrefMock = vi.fn();
+    const onceMock = vi.fn();
     const spawnMock = vi.fn(() => ({
       pid: 12345,
       unref: unrefMock,
+      once: onceMock,
     }));
 
     vi.doMock('node:child_process', () => ({
@@ -20,6 +22,7 @@ describe('sessionRuntime.startSession cleanup on persistence failure', () => {
 
     vi.doMock('../src/state', () => ({
       getSessionSocketPath: vi.fn(() => '/tmp/mock.sock'),
+      getStateRoot: vi.fn(() => '/tmp/agentty-test-home'),
       upsertSession: vi.fn(async () => {
         throw persistenceError;
       }),

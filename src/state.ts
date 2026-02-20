@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -87,7 +87,13 @@ export async function readSessions(): Promise<SessionRecordList> {
 
 export async function writeSessions(sessions: SessionRecordList): Promise<void> {
   await ensureStateRoot();
-  await writeFile(getSessionsPath(), JSON.stringify(sessions, null, 2), 'utf8');
+
+  const sessionsPath = getSessionsPath();
+  const tempPath = `${sessionsPath}.${process.pid}.${Date.now()}.tmp`;
+  const serialized = JSON.stringify(sessions, null, 2);
+
+  await writeFile(tempPath, serialized, 'utf8');
+  await rename(tempPath, sessionsPath);
 }
 
 export async function readSessionById(sessionId: string): Promise<SessionRecord | undefined> {
