@@ -42,10 +42,19 @@
                     <p data-en="Give them a real terminal to control <code>vim</code>, <code>python</code>, and <code>ssh</code>." data-ko="<code>vim</code>, <code>python</code>, <code>ssh</code> 등을 제어할 수 있는 진짜 터미널을 제공하세요.">Give them a real terminal to control <code>vim</code>, <code>python</code>, and <code>ssh</code>.</p>
                 </div>
 
-                <div class="command-box">
-                    <span class="prompt">$</span> npm install -g agentty-cli<span class="cursor">_</span>
+                <div class="agent-context-box">
+                    <p class="caption" data-en="Just throw this URL at your agent:" data-ko="에이전트에게 대충 던지세요:">Just throw this URL at your agent:</p>
+                    <div class="url-copy-row">
+                        <input type="text" readonly value="https://raw.githubusercontent.com/pinion05/agentty/refs/heads/main/README.md" id="context-url">
+                        <button onclick="copyContext()" class="btn-copy" id="copy-btn">COPY</button>
+                    </div>
                 </div>
-                
+
+                <div class="manual-install-box">
+                    <p class="caption-dim" data-en="Or if you really want to install it yourself (not recommended):" data-ko="굳이 직접 설치하고 싶다면? (비추천):">Or if you really want to install it yourself (not recommended):</p>
+                    <code class="cmd-dim">npm install -g agentty-cli</code>
+                </div>
+
                 <div class="link-group">
                     <a href="https://www.npmjs.com/package/agentty-cli" target="_blank" class="btn-link npm">📦 NPM</a>
                     <a href="https://github.com/pinion05/agentty" target="_blank" class="btn-link github">🐙 GITHUB</a>
@@ -214,6 +223,20 @@ hello agentty!
         function toggleLanguage() {
             currentLang = currentLang === 'en' ? 'ko' : 'en';
             updateContent();
+        }
+
+        function copyContext() {
+            const copyText = document.getElementById("context-url");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999); // For mobile devices
+            navigator.clipboard.writeText(copyText.value);
+            
+            const btn = document.getElementById("copy-btn");
+            const originalText = btn.innerText;
+            btn.innerText = "COPIED!";
+            setTimeout(() => {
+                btn.innerText = originalText;
+            }, 2000);
         }
 
         // Initialize
