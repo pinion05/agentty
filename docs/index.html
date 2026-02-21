@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>agentty@tty0: ~</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Font: Fira Code & VT323 for Retro Feel -->
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=VT323&display=swap" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📟</text></svg>">
 </head>
@@ -15,7 +14,6 @@
     <div class="screen-overlay"></div>
 
     <div class="terminal-wrapper">
-        <!-- Top Status Bar (Tmux style) -->
         <header class="status-bar">
             <div class="bar-left">
                 <span class="segment active">AGENTTY</span>
@@ -29,7 +27,6 @@
         </header>
 
         <main class="buffer">
-            <!-- Hero Section / Boot Sequence -->
             <section id="boot" class="section">
                 <pre class="ascii-art">
   ___   ___  ___  _   _  _____  _____  _   _ 
@@ -37,12 +34,6 @@
 / /_\ \ (_ || _| |  \| |  | |    | |   \ \| |
 \/   \/\___||___||_|\__|  |_|    |_|    \___|
                 </pre>
-                <div class="typewriter">
-                    <p>> INITIALIZING PTY SUBSYSTEM...</p>
-                    <p>> LOAD MODULE: INTERACTIVE_SESSION_MANAGER [OK]</p>
-                    <p>> BYPASSING BLOCKING I/O... [SUCCESS]</p>
-                    <p class="highlight">> SYSTEM READY. WAITING FOR AGENT INPUT.</p>
-                </div>
                 
                 <div class="hero-msg">
                     <h1>The Missing <span class="cyan">TTY Layer</span> for AI Agents.</h1>
@@ -55,37 +46,48 @@
                 </div>
             </section>
 
-            <!-- Problem Definition -->
-            <section id="status" class="section">
-                <h2 class="section-title">/* SYSTEM STATUS DIAGNOSTIC */</h2>
+            <!-- LIVE SESSION SIMULATION -->
+            <section id="simulation" class="section">
+                <h2 class="section-title">/* LIVE SESSION SIMULATION */</h2>
                 
-                <div class="grid-2">
-                    <div class="panel error-panel">
-                        <div class="panel-header">❌ LEGACY_AGENT.LOG</div>
-                        <div class="panel-body">
-                            <span class="dim">Running subprocess: python3 -i</span><br>
-                            <span class="err">Process HANG (PID: 4012)</span><br>
-                            <span class="err">Error: STDIN blocked indefinitely.</span><br>
-                            <span class="err">Agent timed out waiting for prompt.</span><br>
-                            <span class="dim">-- core dump generated --</span>
-                        </div>
+                <div class="log-container">
+                    <!-- Step 1: Start -->
+                    <div class="log-entry">
+                        <div class="log-cmd"><span class="prompt">$</span> agentty start --name py -- python3 -i</div>
+                        <div class="log-out cyan">[SYSTEM] Spawning PTY process 'python3'...</div>
+                        <div class="log-out success">[OK] Session 'py' started (PID: 8024). Backgrounded.</div>
                     </div>
 
-                    <div class="panel success-panel">
-                        <div class="panel-header">✅ AGENTTY_SESSION.LOG</div>
-                        <div class="panel-body">
-                            <span class="dim">$ agentty start --name dev -- python3</span><br>
-                            <span class="cyan">[INFO] Session 'dev' attached to PTY.</span><br>
-                            <span class="dim">$ agentty text "import sys; print('ok')"</span><br>
-                            <span class="success">>>> import sys; print('ok')</span><br>
-                            <span class="success">ok</span><br>
-                            <span class="success">>>></span>
+                    <!-- Step 2: Attach -->
+                    <div class="log-entry">
+                        <div class="log-cmd"><span class="prompt">$</span> agentty attach py</div>
+                        <div class="log-out">[INFO] Active session set to 'py'. Context loaded.</div>
+                    </div>
+
+                    <!-- Step 3: Text Input -->
+                    <div class="log-entry">
+                        <div class="log-cmd"><span class="prompt">$</span> agentty text "print(2**10)"</div>
+                        <div class="log-out">[Input] Wrote 14 bytes to STDIN buffer.</div>
+                    </div>
+
+                    <!-- Step 4: Key Press -->
+                    <div class="log-entry">
+                        <div class="log-cmd"><span class="prompt">$</span> agentty key Enter</div>
+                        <div class="log-out">[Key] Sent ^M (Carriage Return). Process executed.</div>
+                    </div>
+
+                    <!-- Step 5: Get Output -->
+                    <div class="log-entry">
+                        <div class="log-cmd"><span class="prompt">$</span> agentty get --lines 5</div>
+                        <div class="log-out output-block">
+>>> print(2**10)
+1024
+>>> <span class="cursor-block"> </span>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- Features -->
             <section id="modules" class="section">
                 <h2 class="section-title">/* ACTIVE MODULES */</h2>
                 <div class="grid-3">
@@ -107,7 +109,6 @@
                 </div>
             </section>
 
-            <!-- Usage Manual -->
             <section id="manual" class="section">
                 <h2 class="section-title">/* OPERATOR MANUAL */</h2>
                 <table class="cli-table">
@@ -143,7 +144,6 @@
             </section>
         </main>
 
-        <!-- Footer Input Line -->
         <footer class="input-line">
             <span class="prompt">guest@agentty:~$</span>
             <a href="https://github.com/pinion/agentty" class="blink-link">git clone https://github.com/pinion/agentty.git</a>
@@ -152,7 +152,6 @@
     </div>
 
     <script>
-        // Simple Clock for Status Bar
         function updateTime() {
             const now = new Date();
             document.getElementById('clock').innerText = now.toLocaleTimeString('en-US', {hour12: false});
