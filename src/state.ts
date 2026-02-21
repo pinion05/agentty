@@ -1,4 +1,5 @@
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -27,6 +28,13 @@ function getActiveSessionPath(): string {
 }
 
 export function getSocketsRoot(): string {
+  if (process.platform === 'darwin') {
+    const uid = typeof process.getuid === 'function' ? String(process.getuid()) : 'unknown';
+    const stateHash = createHash('sha256').update(getStateRoot()).digest('hex').slice(0, 8);
+
+    return path.join('/tmp', `agentty-${uid}-${stateHash}`, SOCKETS_DIR);
+  }
+
   return path.join(getStateRoot(), SOCKETS_DIR);
 }
 

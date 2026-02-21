@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  getSessionSocketPath,
   getStateRoot,
   readActiveSessionId,
   readSessions,
@@ -84,5 +85,16 @@ describe('state', () => {
     await writeActiveSessionId('session-123');
 
     expect(await readActiveSessionId()).toBe('session-123');
+  });
+
+  it('keeps macOS socket path within unix socket path length limit for long AGENTTY_HOME', () => {
+    if (process.platform !== 'darwin') {
+      return;
+    }
+
+    process.env.AGENTTY_HOME = `/tmp/${'a'.repeat(80)}`;
+    const socketPath = getSessionSocketPath('12345678-1234-1234-1234-123456789abc');
+
+    expect(socketPath.length).toBeLessThanOrEqual(104);
   });
 });
