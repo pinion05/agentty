@@ -84,9 +84,9 @@ h2.section-title { color: var(--pink); border-bottom: 1px dashed var(--dim); pad
     color: var(--cyan); box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
 }
 
-/* LINK GROUP (NEW) */
+/* LINK GROUP */
 .link-group {
-    display: flex; gap: 15px; margin-top: 20px; justify-content: flex-start;
+    display: flex; gap: 15px; margin-top: 20px; justify-content: flex-start; flex-wrap: wrap;
 }
 .btn-link {
     text-decoration: none; padding: 8px 16px; font-size: 0.9rem; font-weight: bold;
@@ -96,6 +96,7 @@ h2.section-title { color: var(--pink); border-bottom: 1px dashed var(--dim); pad
 .btn-link:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: 0 0 8px rgba(0, 243, 255, 0.2); }
 .btn-link.npm:hover { border-color: #cb3837; color: #cb3837; box-shadow: 0 0 8px rgba(203, 56, 55, 0.2); } /* NPM Red */
 .btn-link.github:hover { border-color: #fff; color: #fff; box-shadow: 0 0 8px rgba(255, 255, 255, 0.2); }
+.btn-link.deepwiki:hover { border-color: var(--amber); color: var(--amber); box-shadow: 0 0 8px rgba(255, 176, 0, 0.2); } /* DeepWiki Amber */
 
 /* LOG SIMULATION STYLES */
 .log-container {
