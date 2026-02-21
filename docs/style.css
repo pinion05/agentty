@@ -98,7 +98,7 @@ h2.section-title { color: var(--pink); border-bottom: 1px dashed var(--dim); pad
 .btn-link:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: 0 0 8px rgba(0, 243, 255, 0.2); }
 .btn-link.npm:hover { border-color: #cb3837; color: #cb3837; box-shadow: 0 0 8px rgba(203, 56, 55, 0.2); } /* NPM Red */
 .btn-link.github:hover { border-color: #fff; color: #fff; box-shadow: 0 0 8px rgba(255, 255, 255, 0.2); }
-.btn-link.deepwiki:hover { border-color: var(--amber); color: var(--amber); box-shadow: 0 0 8px rgba(255, 176, 0, 0.2); } /* DeepWiki Amber */
+.btn-link.deepwiki:hover { border-color: #58a6ff; color: #58a6ff; box-shadow: 0 0 8px rgba(88, 166, 255, 0.2); } /* Github Blue */
 
 /* LOG SIMULATION STYLES */
 .log-container {
