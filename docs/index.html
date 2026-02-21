@@ -21,6 +21,7 @@
                 <span class="segment">main</span>
             </div>
             <div class="bar-right">
+                <span class="segment btn-lang" id="lang-toggle" onclick="toggleLanguage()">[EN]</span>
                 <span class="segment" id="clock">00:00:00</span>
                 <span class="segment success">ONLINE</span>
             </div>
@@ -36,9 +37,9 @@
                 </pre>
                 
                 <div class="hero-msg">
-                    <h1>The Missing <span class="cyan">TTY Layer</span> for AI Agents.</h1>
-                    <p>Stop your agents from hanging on <code>stdin</code>.</p>
-                    <p>Give them a real terminal to control <code>vim</code>, <code>python</code>, and <code>ssh</code>.</p>
+                    <h1 data-en="The Missing <span class='cyan'>TTY Layer</span> for AI Agents." data-ko="AI 에이전트를 위한 <span class='cyan'>TTY 레이어</span>.">The Missing <span class="cyan">TTY Layer</span> for AI Agents.</h1>
+                    <p data-en="Stop your agents from hanging on <code>stdin</code>." data-ko="<code>stdin</code> 입력 대기로 인한 에이전트 멈춤 현상을 해결하세요.">Stop your agents from hanging on <code>stdin</code>.</p>
+                    <p data-en="Give them a real terminal to control <code>vim</code>, <code>python</code>, and <code>ssh</code>." data-ko="<code>vim</code>, <code>python</code>, <code>ssh</code> 등을 제어할 수 있는 진짜 터미널을 제공하세요.">Give them a real terminal to control <code>vim</code>, <code>python</code>, and <code>ssh</code>.</p>
                 </div>
 
                 <div class="command-box">
@@ -54,7 +55,7 @@
 
             <!-- LIVE SESSION SIMULATION -->
             <section id="simulation" class="section">
-                <h2 class="section-title">/* LIVE SESSION SIMULATION */</h2>
+                <h2 class="section-title" data-en="/* LIVE SESSION SIMULATION */" data-ko="/* 라이브 세션 시뮬레이션 */">/* LIVE SESSION SIMULATION */</h2>
                 
                 <div class="log-container">
                     <!-- Step 1: Start -->
@@ -94,14 +95,14 @@ hello agentty!
 
             <!-- USE CASES: CLASSIFIED OPERATIONS -->
             <section id="operations" class="section">
-                <h2 class="section-title">/* CLASSIFIED OPERATIONS */</h2>
+                <h2 class="section-title" data-en="/* CLASSIFIED OPERATIONS */" data-ko="/* 기밀 작전 (주요 기능) */">/* CLASSIFIED OPERATIONS */</h2>
                 <div class="grid-2">
                     <!-- Op 1 -->
                     <div class="op-card">
                         <div class="op-header">OP_01: REALTIME_LOG_INTERCEPT</div>
                         <div class="op-body">
-                            <h3>Fully Accessible Real-time Logs</h3>
-                            <p>Directly execute long-running servers. Capture live logs from <code>stdout</code> without relying on file system logging or complex pipe redirection.</p>
+                            <h3 data-en="Fully Accessible Real-time Logs" data-ko="완벽히 접근 가능한 실시간 로그">Fully Accessible Real-time Logs</h3>
+                            <p data-en="Directly execute long-running servers. Capture live logs from <code>stdout</code> without relying on file system logging or complex pipe redirection." data-ko="오래 실행되는 서버를 직접 실행하세요. 파일 시스템이나 복잡한 파이프 리다이렉션 없이 <code>stdout</code>에서 라이브 로그를 캡처합니다.">Directly execute long-running servers. Capture live logs from <code>stdout</code> without relying on file system logging or complex pipe redirection.</p>
                             <div class="code-snippet">agentty get --lines 50</div>
                         </div>
                     </div>
@@ -109,60 +110,58 @@ hello agentty!
                     <div class="op-card">
                         <div class="op-header">OP_02: META_AGENT_HANDSHAKE</div>
                         <div class="op-body">
-                            <h3>Conversational CLI Control</h3>
-                            <p>Invoke interactive AI tools like <code>claude</code> or <code>gh copilot</code>. Negotiate tasks, answer prompts, and collaborate with other agents via TTY.</p>
+                            <h3 data-en="Conversational CLI Control" data-ko="대화형 CLI 제어 (Meta-Agent)">Conversational CLI Control</h3>
+                            <p data-en="Invoke interactive AI tools like <code>claude</code> or <code>gh copilot</code>. Negotiate tasks, answer prompts, and collaborate with other agents via TTY." data-ko="<code>claude</code>나 <code>gh copilot</code> 같은 대화형 AI 도구를 호출하세요. TTY를 통해 작업을 협상하고, 프롬프트에 답변하며, 다른 에이전트와 협업할 수 있습니다.">Invoke interactive AI tools like <code>claude</code> or <code>gh copilot</code>. Negotiate tasks, answer prompts, and collaborate with other agents via TTY.</p>
                         </div>
                     </div>
                     <!-- Op 3 -->
                     <div class="op-card">
                         <div class="op-header">OP_03: OAUTH_PENDING_BYPASS</div>
                         <div class="op-body">
-                            <h3>Solve "Press Enter to Open Browser"</h3>
-                            <p>Detect pending auth URLs in the terminal. Extract the link, delegate to a browser agent, and signal completion to the CLI.</p>
+                            <h3 data-en="Solve 'Press Enter to Open Browser'" data-ko="'브라우저 인증 대기' 문제 해결">Solve "Press Enter to Open Browser"</h3>
+                            <p data-en="Detect pending auth URLs in the terminal. Extract the link, delegate to a browser agent, and signal completion to the CLI." data-ko="터미널에서 인증 대기 URL을 감지합니다. 링크를 추출하여 브라우저 에이전트에 위임하고, 완료 신호를 CLI로 보냅니다.">Detect pending auth URLs in the terminal. Extract the link, delegate to a browser agent, and signal completion to the CLI.</p>
                         </div>
                     </div>
                     <!-- Op 4 -->
                     <div class="op-card">
                         <div class="op-header">OP_04: WIZARD_OVERRIDE</div>
                         <div class="op-body">
-                            <h3>Conquer Installation Wizards</h3>
-                            <p>Handle complex setup scripts that lack <code>--non-interactive</code> flags. Select options, confirm dialogs, and navigate menus dynamically.</p>
+                            <h3 data-en="Conquer Installation Wizards" data-ko="설치 마법사 정복">Conquer Installation Wizards</h3>
+                            <p data-en="Handle complex setup scripts that lack <code>--non-interactive</code> flags. Select options, confirm dialogs, and navigate menus dynamically." data-ko="<code>--non-interactive</code> 옵션이 없는 복잡한 설치 스크립트를 처리합니다. 옵션을 선택하고, 대화 상자를 확인하며, 메뉴를 동적으로 탐색하세요.">Handle complex setup scripts that lack <code>--non-interactive</code> flags. Select options, confirm dialogs, and navigate menus dynamically.</p>
                         </div>
                     </div>
                 </div>
             </section>
 
-
-
             <section id="manual" class="section">
-                <h2 class="section-title">/* OPERATOR MANUAL */</h2>
+                <h2 class="section-title" data-en="/* OPERATOR MANUAL */" data-ko="/* 오퍼레이터 매뉴얼 */">/* OPERATOR MANUAL */</h2>
                 <table class="cli-table">
                     <thead>
                         <tr>
-                            <th>COMMAND</th>
-                            <th>DESCRIPTION</th>
+                            <th data-en="COMMAND" data-ko="명령어">COMMAND</th>
+                            <th data-en="DESCRIPTION" data-ko="설명">DESCRIPTION</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td><code class="cyan">agentty start</code></td>
-                            <td>Spawn a new background PTY session.</td>
+                            <td data-en="Spawn a new background PTY session." data-ko="새로운 백그라운드 PTY 세션을 생성합니다.">Spawn a new background PTY session.</td>
                         </tr>
                         <tr>
                             <td><code class="cyan">agentty attach</code></td>
-                            <td>Set active focus to a specific session ID.</td>
+                            <td data-en="Set active focus to a specific session ID." data-ko="특정 세션 ID로 포커스를 전환합니다.">Set active focus to a specific session ID.</td>
                         </tr>
                         <tr>
                             <td><code class="cyan">agentty text</code></td>
-                            <td>Send string input to the active process.</td>
+                            <td data-en="Send string input to the active process." data-ko="활성 프로세스에 문자열 입력을 보냅니다.">Send string input to the active process.</td>
                         </tr>
                         <tr>
                             <td><code class="cyan">agentty key</code></td>
-                            <td>Inject special keys (Enter, Esc, Ctrl+C).</td>
+                            <td data-en="Inject special keys (Enter, Esc, Ctrl+C)." data-ko="특수 키(Enter, Esc, Ctrl+C)를 입력합니다.">Inject special keys (Enter, Esc, Ctrl+C).</td>
                         </tr>
                         <tr>
                             <td><code class="cyan">agentty get</code></td>
-                            <td>Retrieve current terminal viewport snapshot.</td>
+                            <td data-en="Retrieve current terminal viewport snapshot." data-ko="현재 터미널 화면 스냅샷을 가져옵니다.">Retrieve current terminal viewport snapshot.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -177,12 +176,40 @@ hello agentty!
     </div>
 
     <script>
+        // Clock
         function updateTime() {
             const now = new Date();
             document.getElementById('clock').innerText = now.toLocaleTimeString('en-US', {hour12: false});
         }
         setInterval(updateTime, 1000);
         updateTime();
+
+        // Language Toggle Logic
+        let currentLang = localStorage.getItem('agentty_lang') || 'en';
+        
+        function updateContent() {
+            const elements = document.querySelectorAll('[data-en]');
+            const toggleBtn = document.getElementById('lang-toggle');
+            
+            elements.forEach(el => {
+                if (currentLang === 'ko') {
+                    el.innerHTML = el.getAttribute('data-ko');
+                } else {
+                    el.innerHTML = el.getAttribute('data-en');
+                }
+            });
+
+            toggleBtn.innerText = currentLang === 'ko' ? '[KR]' : '[EN]';
+            localStorage.setItem('agentty_lang', currentLang);
+        }
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'en' ? 'ko' : 'en';
+            updateContent();
+        }
+
+        // Initialize
+        updateContent();
     </script>
 </body>
 </html>

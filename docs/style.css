@@ -66,6 +66,8 @@ body {
 .segment { padding: 5px 15px; border-right: 1px solid var(--dim); }
 .segment.active { background: var(--cyan); color: #000; font-weight: bold; }
 .segment.success { color: var(--green); }
+.segment.btn-lang { cursor: pointer; user-select: none; transition: background 0.2s, color 0.2s; }
+.segment.btn-lang:hover { background: var(--dim); color: #fff; }
 
 /* Typography */
 h1 { font-family: var(--retro-font); font-size: 3rem; margin-bottom: 1rem; text-shadow: 0 0 5px var(--cyan); }
