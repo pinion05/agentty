@@ -53,36 +53,35 @@
                 <div class="log-container">
                     <!-- Step 1: Start -->
                     <div class="log-entry">
-                        <div class="log-cmd"><span class="prompt">$</span> agentty start --name py -- python3 -i</div>
-                        <div class="log-out cyan">[SYSTEM] Spawning PTY process 'python3'...</div>
-                        <div class="log-out success">[OK] Session 'py' started (PID: 8024). Backgrounded.</div>
+                        <div class="log-cmd"><span class="prompt">></span> npx agentty-cli start --name node1 -- "node -i"</div>
+                        <div class="log-out success">f3500f73-24fb-42bb-bf18-307b50ce9608</div>
                     </div>
 
                     <!-- Step 2: Attach -->
                     <div class="log-entry">
-                        <div class="log-cmd"><span class="prompt">$</span> agentty attach py</div>
-                        <div class="log-out">[INFO] Active session set to 'py'. Context loaded.</div>
+                        <div class="log-cmd"><span class="prompt">></span> agentty attach f3500f73-24fb-42bb-bf18-307b50ce9608</div>
+                        <div class="log-out success">f3500f73-24fb-42bb-bf18-307b50ce9608</div>
                     </div>
 
                     <!-- Step 3: Text Input -->
                     <div class="log-entry">
-                        <div class="log-cmd"><span class="prompt">$</span> agentty text "print(2**10)"</div>
-                        <div class="log-out">[Input] Wrote 14 bytes to STDIN buffer.</div>
+                        <div class="log-cmd"><span class="prompt">></span> agentty text "console.log('hello agentty!')"</div>
                     </div>
 
                     <!-- Step 4: Key Press -->
                     <div class="log-entry">
-                        <div class="log-cmd"><span class="prompt">$</span> agentty key Enter</div>
-                        <div class="log-out">[Key] Sent ^M (Carriage Return). Process executed.</div>
+                        <div class="log-cmd"><span class="prompt">></span> agentty key Enter</div>
                     </div>
 
                     <!-- Step 5: Get Output -->
                     <div class="log-entry">
-                        <div class="log-cmd"><span class="prompt">$</span> agentty get --lines 5</div>
+                        <div class="log-cmd"><span class="prompt">></span> agentty get</div>
                         <div class="log-out output-block">
->>> print(2**10)
-1024
->>> <span class="cursor-block"> </span>
+Welcome to Node.js v24.13.0.
+Type ".help" for more information.
+> console.log('hello agentty!')
+hello agentty!
+undefined                                                 > <span class="cursor-block"> </span>
                         </div>
                     </div>
                 </div>
