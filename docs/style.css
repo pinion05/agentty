@@ -84,38 +84,36 @@ h2.section-title { color: var(--pink); border-bottom: 1px dashed var(--dim); pad
     color: var(--cyan); box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
 }
 
-/* LOG SIMULATION STYLES (NEW) */
+/* LOG SIMULATION STYLES */
 .log-container {
-    background: #050505;
-    border: 1px solid var(--dim);
-    padding: 20px;
-    border-radius: 4px;
-    font-family: var(--font-stack);
+    background: #050505; border: 1px solid var(--dim); padding: 20px; border-radius: 4px; font-family: var(--font-stack);
 }
-
 .log-entry { margin-bottom: 15px; border-left: 2px solid var(--dim); padding-left: 15px; }
-.log-entry:last-child { margin-bottom: 0; border-left-color: var(--cyan); } /* Current step highlight */
-
+.log-entry:last-child { margin-bottom: 0; border-left-color: var(--cyan); }
 .log-cmd { color: #fff; margin-bottom: 5px; font-weight: bold; }
 .log-out { color: var(--dim); font-size: 0.9rem; }
-.log-out.cyan { color: var(--cyan); }
-.log-out.success { color: var(--green); }
+.log-out.cyan { color: var(--cyan); } .log-out.success { color: var(--green); }
+.output-block { background: #111; color: #ccc; padding: 10px; margin-top: 5px; border: 1px solid var(--border); white-space: pre; }
+.cursor-block { display: inline-block; width: 8px; height: 15px; background: var(--green); animation: blink 1s step-end infinite; vertical-align: middle; }
 
-.output-block {
-    background: #111;
-    color: #ccc;
-    padding: 10px;
-    margin-top: 5px;
-    border: 1px solid var(--border);
-    white-space: pre;
+/* OPERATIONS CARDS (NEW) */
+.op-card {
+    background: #050505; border: 1px solid var(--border); transition: all 0.2s;
+    display: flex; flex-direction: column;
 }
-
-.cursor-block {
-    display: inline-block; width: 8px; height: 15px; background: var(--green);
-    animation: blink 1s step-end infinite; vertical-align: middle;
+.op-card:hover { border-color: var(--green); box-shadow: 0 0 10px rgba(0, 255, 65, 0.1); }
+.op-header {
+    background: #111; padding: 8px 15px; border-bottom: 1px solid var(--border);
+    color: var(--green); font-size: 0.8rem; font-weight: bold; letter-spacing: 0.5px;
 }
+.op-card:hover .op-header { background: rgba(0, 255, 65, 0.1); }
+.op-body { padding: 20px; flex: 1; }
+.op-body h3 { color: #fff; font-size: 1.1rem; margin-bottom: 10px; }
+.op-body p { color: #aaa; font-size: 0.9rem; line-height: 1.5; margin-bottom: 15px; }
+.code-snippet { background: #111; padding: 5px 10px; color: var(--cyan); font-size: 0.85rem; border-radius: 3px; display: inline-block; }
 
 /* Modules Grid */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .module { border: 1px solid var(--border); padding: 20px; transition: all 0.2s; background: #080808; }
 .module:hover { border-color: var(--cyan); box-shadow: 0 0 15px rgba(0, 243, 255, 0.1); }
@@ -144,7 +142,7 @@ h2.section-title { color: var(--pink); border-bottom: 1px dashed var(--dim); pad
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
 @media (max-width: 768px) {
-    .grid-3 { grid-template-columns: 1fr; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
     h1 { font-size: 2rem; }
     .status-bar { font-size: 0.8rem; }
 }
