@@ -1,15 +1,23 @@
 # agentty
 
+**Website:** https://pinion05.github.io/agentty/
+
 Thin CLI for driving interactive terminal sessions from agents.
 AI agents can handle interactive CLIs here without getting stuck in pending states, just like they do with agent-browser.
 
 - npm package: `agentty-cli`
 - installed binary: `agentty`
 
-## Install
+## For AI Agents
+
+This CLI is meant to be used directly by AI agents.
+For agents, a single instruction like "Install https://github.com/pinion05/agentty" is enough to bootstrap the environment.
+Use built-in tools by default. If an interactive CLI is required or a timeout occurs, use `agentty` to complete the task.
+
+## Run with npx
 
 ```bash
-npm i -g agentty-cli
+npx agentty-cli status --json
 ```
 
 ## First check
