@@ -212,7 +212,61 @@ h2.section-title { color: var(--pink); border-bottom: 1px dashed var(--dim); pad
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
 @media (max-width: 768px) {
+    /* 1. Layout & Container */
+    .terminal-wrapper { padding: 10px; overflow-x: hidden; }
+    .section { margin-bottom: 3rem; }
+    
+    /* 2. Typography */
+    h1 { font-size: 1.8rem; line-height: 1.2; word-break: break-word; }
+    h2.section-title { font-size: 1rem; }
+    .hero-msg p { font-size: 1rem; }
+    
+    /* 3. ASCII Art Sizing */
+    .ascii-art { font-size: 0.4rem; overflow-x: hidden; letter-spacing: -1px; }
+
+    /* 4. Grid Stacking */
     .grid-2, .grid-3 { grid-template-columns: 1fr; }
-    h1 { font-size: 2rem; }
-    .status-bar { font-size: 0.8rem; }
+
+    /* 5. Status Bar Compact */
+    .status-bar { font-size: 0.75rem; padding: 10px 5px; }
+    .segment { padding: 0 8px; }
+    /* Hide Version/Branch on Mobile to save space */
+    .bar-left .segment:nth-child(2), 
+    .bar-left .segment:nth-child(3) { display: none; } 
+    
+    /* 6. Agent Context Box (URL Input) */
+    .url-copy-row { flex-direction: row; }
+    .url-copy-row input { 
+        width: 100%; min-width: 0; /* Important for flex shrinking */
+        font-size: 0.8rem; padding: 10px;
+    }
+    .btn-copy { padding: 0 10px; font-size: 0.8rem; }
+    
+    /* 7. Link Buttons */
+    .link-group { gap: 10px; }
+    .btn-link { padding: 8px 12px; font-size: 0.8rem; flex: 1; justify-content: center; }
+
+    /* 8. Table Transformation (Table -> Cards) */
+    .cli-table, .cli-table tbody, .cli-table tr, .cli-table td {
+        display: block; width: 100%;
+    }
+    .cli-table thead { display: none; } /* Hide Header */
+    .cli-table tr {
+        margin-bottom: 15px; border: 1px solid var(--dim); 
+        background: #080808; padding: 10px; border-radius: 4px;
+    }
+    .cli-table td {
+        padding: 5px 0; border: none;
+    }
+    .cli-table td:first-child {
+        border-bottom: 1px dashed var(--dim); margin-bottom: 5px; padding-bottom: 8px;
+    }
+
+    /* 9. Footer */
+    .input-line { font-size: 0.8rem; padding: 10px 15px; }
+    .prompt { display: none; } /* Hide prompt to save space */
+    
+    /* 10. Log Container */
+    .log-container { padding: 10px; font-size: 0.85rem; }
+    .output-block { overflow-x: auto; }
 }
