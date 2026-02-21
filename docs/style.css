@@ -153,6 +153,35 @@ h2.section-title { color: var(--pink); border-bottom: 1px dashed var(--dim); pad
 .op-body p { color: #aaa; font-size: 0.9rem; line-height: 1.5; margin-bottom: 15px; }
 .code-snippet { background: #111; padding: 5px 10px; color: var(--cyan); font-size: 0.85rem; border-radius: 3px; display: inline-block; }
 
+/* STEALTH OP STYLES (NEW) */
+.full-width { margin-top: 20px; width: 100%; }
+.stealth-op { position: relative; overflow: hidden; cursor: pointer; min-height: 150px; border-color: var(--pink); }
+.stealth-op:hover { border-color: var(--pink); box-shadow: 0 0 15px rgba(255, 0, 85, 0.3); }
+
+.stealth-op.locked { border-color: var(--dim); cursor: pointer; }
+.stealth-op.locked .op-content { filter: blur(8px) grayscale(100%); opacity: 0.3; pointer-events: none; }
+.stealth-op.locked:hover { border-color: var(--pink); }
+
+.noise-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.1'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 2; opacity: 0;
+}
+.stealth-op.locked .noise-overlay { opacity: 1; }
+
+.lock-screen {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    text-align: center; z-index: 5; display: none; width: 100%;
+}
+.stealth-op.locked .lock-screen { display: block; }
+.lock-icon { font-size: 3rem; margin-bottom: 10px; display: block; }
+.lock-screen h3 { color: var(--pink); margin-bottom: 5px; font-family: var(--font-stack); text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 5px var(--pink); }
+.lock-screen p { color: #fff; font-size: 0.8rem; letter-spacing: 2px; animation: blink 0.5s step-end infinite; background: #000; display: inline-block; padding: 2px 5px; }
+
+.warning-badge {
+    background: var(--pink); color: #fff; font-size: 0.7rem; padding: 2px 5px; border-radius: 3px; margin-left: 10px; vertical-align: middle; text-transform: uppercase; font-weight: bold;
+}
+
 /* Modules Grid */
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
