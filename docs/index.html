@@ -1,117 +1,164 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agentty - 에이전트를 위한 강력한 세션 관리자</title>
+    <title>agentty@tty0: ~</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤖</text></svg>">
-    <meta name="description" content="Agentty는 AI 에이전트가 인터랙티브 CLI 도구를 멈춤 없이 사용할 수 있게 해주는 강력한 세션 관리자입니다.">
+    <!-- Font: Fira Code & VT323 for Retro Feel -->
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=VT323&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📟</text></svg>">
 </head>
 <body>
 
-    <header>
-        <div class="container">
-            <div class="logo">agentty</div>
-            <nav>
-                <a href="#features">기능</a>
-                <a href="#how-it-works">작동 원리</a>
-                <a href="#usage">사용법</a>
-                <a href="https://github.com/pinion/agentty" target="_blank" class="github-link">GitHub</a>
-            </nav>
-        </div>
-    </header>
+    <div class="scanlines"></div>
+    <div class="screen-overlay"></div>
 
-    <section class="hero">
-        <div class="container">
-            <h1>에이전트를 위한 <span class="highlight">강력한 세션 관리자</span></h1>
-            <p class="subtitle">
-                더 이상 에이전트가 터미널에서 멈추지 않습니다.<br>
-                Python REPL, Vim, Claude Code 등 모든 대화형 도구를 자유롭게 제어하세요.
-            </p>
-            <div class="install-box">
-                <code>npm i -g agentty-cli</code>
+    <div class="terminal-wrapper">
+        <!-- Top Status Bar (Tmux style) -->
+        <header class="status-bar">
+            <div class="bar-left">
+                <span class="segment active">AGENTTY</span>
+                <span class="segment">v0.1.0</span>
+                <span class="segment">main</span>
             </div>
-        </div>
-    </section>
-
-    <section id="features" class="section-dark">
-        <div class="container">
-            <h2>왜 Agentty인가요?</h2>
-            <div class="grid-3">
-                <div class="card">
-                    <h3>🚀 Non-Blocking</h3>
-                    <p>입력을 기다리는 CLI 도구 때문에 에이전트가 멈추지 않습니다. 백그라운드 PTY 세션으로 완벽하게 분리됩니다.</p>
-                </div>
-                <div class="card">
-                    <h3>💾 Stateful Sessions</h3>
-                    <p><code>attach</code> 명령어로 언제든 작업 중이던 세션으로 돌아가세요. 문맥을 잃지 않고 작업을 이어갈 수 있습니다.</p>
-                </div>
-                <div class="card">
-                    <h3>🤖 Meta-Agent Ready</h3>
-                    <p>에이전트가 또 다른 에이전트(Claude Code, Gemini CLI)를 고용하여 대화하며 협업하는 워크플로우를 만드세요.</p>
-                </div>
+            <div class="bar-right">
+                <span class="segment" id="clock">00:00:00</span>
+                <span class="segment success">ONLINE</span>
             </div>
-        </div>
-    </section>
+        </header>
 
-    <section id="how-it-works" class="section-light">
-        <div class="container">
-            <h2>어떻게 작동하나요?</h2>
-            <div class="terminal-demo">
-                <div class="terminal-window">
-                    <div class="terminal-header">
-                        <span class="dot red"></span>
-                        <span class="dot yellow"></span>
-                        <span class="dot green"></span>
-                        <span class="title">agentty-session</span>
+        <main class="buffer">
+            <!-- Hero Section / Boot Sequence -->
+            <section id="boot" class="section">
+                <pre class="ascii-art">
+  ___   ___  ___  _   _  _____  _____  _   _ 
+ / _ \ / __|| __|| \ | ||_   _||_   _|| \ | |
+/ /_\ \ (_ || _| |  \| |  | |    | |   \ \| |
+\/   \/\___||___||_|\__|  |_|    |_|    \___|
+                </pre>
+                <div class="typewriter">
+                    <p>> INITIALIZING PTY SUBSYSTEM...</p>
+                    <p>> LOAD MODULE: INTERACTIVE_SESSION_MANAGER [OK]</p>
+                    <p>> BYPASSING BLOCKING I/O... [SUCCESS]</p>
+                    <p class="highlight">> SYSTEM READY. WAITING FOR AGENT INPUT.</p>
+                </div>
+                
+                <div class="hero-msg">
+                    <h1>The Missing <span class="cyan">TTY Layer</span> for AI Agents.</h1>
+                    <p>Stop your agents from hanging on <code>stdin</code>.</p>
+                    <p>Give them a real terminal to control <code>vim</code>, <code>python</code>, and <code>ssh</code>.</p>
+                </div>
+
+                <div class="command-box">
+                    <span class="prompt">$</span> npm install -g agentty-cli<span class="cursor">_</span>
+                </div>
+            </section>
+
+            <!-- Problem Definition -->
+            <section id="status" class="section">
+                <h2 class="section-title">/* SYSTEM STATUS DIAGNOSTIC */</h2>
+                
+                <div class="grid-2">
+                    <div class="panel error-panel">
+                        <div class="panel-header">❌ LEGACY_AGENT.LOG</div>
+                        <div class="panel-body">
+                            <span class="dim">Running subprocess: python3 -i</span><br>
+                            <span class="err">Process HANG (PID: 4012)</span><br>
+                            <span class="err">Error: STDIN blocked indefinitely.</span><br>
+                            <span class="err">Agent timed out waiting for prompt.</span><br>
+                            <span class="dim">-- core dump generated --</span>
+                        </div>
                     </div>
-                    <div class="terminal-body">
-                        <div class="line"><span class="prompt">$</span> agentty start --name py -- python3</div>
-                        <div class="line output">Started session: py (pid: 12345)</div>
-                        <br>
-                        <div class="line"><span class="prompt">$</span> agentty text "print('Hello Agent')"</div>
-                        <div class="line"><span class="prompt">$</span> agentty key Enter</div>
-                        <br>
-                        <div class="line"><span class="prompt">$</span> agentty get</div>
-                        <div class="line output">>>> print('Hello Agent')</div>
-                        <div class="line output">Hello Agent</div>
-                        <div class="line output">>>></div>
+
+                    <div class="panel success-panel">
+                        <div class="panel-header">✅ AGENTTY_SESSION.LOG</div>
+                        <div class="panel-body">
+                            <span class="dim">$ agentty start --name dev -- python3</span><br>
+                            <span class="cyan">[INFO] Session 'dev' attached to PTY.</span><br>
+                            <span class="dim">$ agentty text "import sys; print('ok')"</span><br>
+                            <span class="success">>>> import sys; print('ok')</span><br>
+                            <span class="success">ok</span><br>
+                            <span class="success">>>></span>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </section>
+            </section>
 
-    <section id="usage" class="section-dark">
-        <div class="container">
-            <h2>바로 시작하기</h2>
-            <div class="code-block">
-                <pre>
-<span class="comment"># 1. 세션 시작 (예: Python)</span>
-agentty start --name dev -- python3
+            <!-- Features -->
+            <section id="modules" class="section">
+                <h2 class="section-title">/* ACTIVE MODULES */</h2>
+                <div class="grid-3">
+                    <div class="module">
+                        <span class="icon">⚡</span>
+                        <h3>NON-BLOCKING IO</h3>
+                        <p>Decoupled PTY execution. Agents fire commands and read snapshots asynchronously.</p>
+                    </div>
+                    <div class="module">
+                        <span class="icon">💾</span>
+                        <h3>STATE PERSISTENCE</h3>
+                        <p>Sessions survive agent restarts. <code>attach</code> to resume context instantly.</p>
+                    </div>
+                    <div class="module">
+                        <span class="icon">🔌</span>
+                        <h3>META-CONTROL</h3>
+                        <p>Drive other CLI agents (Claude, Gemini) from within your own agent loop.</p>
+                    </div>
+                </div>
+            </section>
 
-<span class="comment"># 2. 명령 전송 (텍스트 입력)</span>
-agentty text "import os"
-agentty key Enter
+            <!-- Usage Manual -->
+            <section id="manual" class="section">
+                <h2 class="section-title">/* OPERATOR MANUAL */</h2>
+                <table class="cli-table">
+                    <thead>
+                        <tr>
+                            <th>COMMAND</th>
+                            <th>DESCRIPTION</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code class="cyan">agentty start</code></td>
+                            <td>Spawn a new background PTY session.</td>
+                        </tr>
+                        <tr>
+                            <td><code class="cyan">agentty attach</code></td>
+                            <td>Set active focus to a specific session ID.</td>
+                        </tr>
+                        <tr>
+                            <td><code class="cyan">agentty text</code></td>
+                            <td>Send string input to the active process.</td>
+                        </tr>
+                        <tr>
+                            <td><code class="cyan">agentty key</code></td>
+                            <td>Inject special keys (Enter, Esc, Ctrl+C).</td>
+                        </tr>
+                        <tr>
+                            <td><code class="cyan">agentty get</code></td>
+                            <td>Retrieve current terminal viewport snapshot.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </main>
 
-<span class="comment"># 3. 결과 확인 (스냅샷 조회)</span>
-agentty get
+        <!-- Footer Input Line -->
+        <footer class="input-line">
+            <span class="prompt">guest@agentty:~$</span>
+            <a href="https://github.com/pinion/agentty" class="blink-link">git clone https://github.com/pinion/agentty.git</a>
+            <span class="cursor">█</span>
+        </footer>
+    </div>
 
-<span class="comment"># 4. 세션 종료</span>
-agentty kill</pre>
-            </div>
-            <div class="cta-container">
-                <a href="https://github.com/pinion/agentty" class="btn-primary">GitHub에서 보기</a>
-            </div>
-        </div>
-    </section>
-
-    <footer>
-        <div class="container">
-            <p>&copy; 2026 Agentty Project. Licensed under MIT.</p>
-        </div>
-    </footer>
-
+    <script>
+        // Simple Clock for Status Bar
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString('en-US', {hour12: false});
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+    </script>
 </body>
 </html>
