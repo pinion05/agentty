@@ -65,9 +65,9 @@
                 </div>
             </section>
 
-            <!-- LIVE SESSION SIMULATION -->
+            <!-- AGENT WORKFLOW -->
             <section id="simulation" class="section">
-                <h2 class="section-title" data-en="/* LIVE SESSION SIMULATION */" data-ko="/* 라이브 세션 시뮬레이션 */">/* LIVE SESSION SIMULATION */</h2>
+                <h2 class="section-title" data-en="/* AGENT WORKFLOW */" data-ko="/* 에이전트 워크플로우 */">/* AGENT WORKFLOW */</h2>
                 
                 <div class="log-container">
                     <!-- Step 1: Start -->
@@ -78,28 +78,28 @@
 
                     <!-- Step 2: Attach -->
                     <div class="log-entry">
-                        <div class="log-cmd"><span class="prompt">></span> agentty attach f3500f73-24fb-42bb-bf18-307b50ce9608</div>
+                        <div class="log-cmd"><span class="prompt">></span> npx agentty-cli attach f3500f73-24fb-42bb-bf18-307b50ce9608</div>
                         <div class="log-out success">f3500f73-24fb-42bb-bf18-307b50ce9608</div>
                     </div>
 
                     <!-- Step 3: Text Input -->
                     <div class="log-entry">
-                        <div class="log-cmd"><span class="prompt">></span> agentty text "console.log('hello agentty!')"</div>
+                        <div class="log-cmd"><span class="prompt">></span> npx agentty-cli text "console.log('hello agentty-cli!')"</div>
                     </div>
 
                     <!-- Step 4: Key Press -->
                     <div class="log-entry">
-                        <div class="log-cmd"><span class="prompt">></span> agentty key Enter</div>
+                        <div class="log-cmd"><span class="prompt">></span> npx agentty-cli key Enter</div>
                     </div>
 
                     <!-- Step 5: Get Output -->
                     <div class="log-entry">
-                        <div class="log-cmd"><span class="prompt">></span> agentty get</div>
+                        <div class="log-cmd"><span class="prompt">></span> npx agentty-cli get</div>
                         <div class="log-out output-block">
 Welcome to Node.js v24.13.0.
 Type ".help" for more information.
-> console.log('hello agentty!')
-hello agentty!
+> console.log('hello agentty-cli!')
+hello agentty-cli!
                         </div>
                     </div>
                 </div>
