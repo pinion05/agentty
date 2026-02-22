@@ -2,6 +2,8 @@
 
 **Website:** https://pinion05.github.io/agentty/
 
+[![Hits](https://hits.dwyl.com/pinion05/agentty.svg?style=flat-square)](https://hits.dwyl.com/pinion05/agentty)
+
 Thin CLI for driving interactive terminal sessions from agents.
 AI agents can handle interactive CLIs here without getting stuck in pending states, just like they do with agent-browser.
 
