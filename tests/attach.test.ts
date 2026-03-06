@@ -5,7 +5,7 @@ import path from 'node:path';
 import { execa } from 'execa';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { readActiveSessionId } from '../src/state';
+import { readActiveSessionId, upsertSession, writeActiveSessionId } from '../src/state';
 import { attachSession, resolveTargetSessionId } from '../src/resolveSession';
 
 describe('attach and session resolution', () => {
@@ -29,19 +29,25 @@ describe('attach and session resolution', () => {
   });
 
   it('attachSession sets active session pointer', async () => {
+    await upsertSession({
+      id: 'session-1',
+      status: 'running',
+      socketPath: '/tmp/session-1.sock',
+    });
+
     await attachSession('session-1');
 
     expect(await readActiveSessionId()).toBe('session-1');
   });
 
   it('resolveTargetSessionId returns explicit id when provided', async () => {
-    await attachSession('active-session');
+    await writeActiveSessionId('active-session');
 
     await expect(resolveTargetSessionId('explicit-session')).resolves.toBe('explicit-session');
   });
 
   it('resolveTargetSessionId falls back to active session id', async () => {
-    await attachSession('active-session');
+    await writeActiveSessionId('active-session');
 
     await expect(resolveTargetSessionId()).resolves.toBe('active-session');
   });
@@ -51,6 +57,12 @@ describe('attach and session resolution', () => {
   });
 
   it('agentty attach writes pointer and prints attached id', async () => {
+    await upsertSession({
+      id: 'session-cli',
+      status: 'running',
+      socketPath: '/tmp/session-cli.sock',
+    });
+
     const { stdout } = await execa('node', ['dist/index.js', 'attach', 'session-cli'], {
       env: {
         ...process.env,
@@ -60,5 +72,32 @@ describe('attach and session resolution', () => {
 
     expect(stdout).toBe('session-cli');
     expect(await readActiveSessionId()).toBe('session-cli');
+  });
+
+  it('attachSession rejects nonexistent sessions', async () => {
+    await expect(attachSession('missing-session')).rejects.toThrow(
+      'session is not running: missing-session',
+    );
+    await expect(readActiveSessionId()).resolves.toBeNull();
+  });
+
+  it('agentty attach rejects exited sessions', async () => {
+    await upsertSession({
+      id: 'exited-session',
+      status: 'exited',
+      socketPath: '/tmp/exited-session.sock',
+    });
+
+    const result = await execa('node', ['dist/index.js', 'attach', 'exited-session'], {
+      env: {
+        ...process.env,
+        AGENTTY_HOME: tempHome,
+      },
+      reject: false,
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('session is not running: exited-session');
+    await expect(readActiveSessionId()).resolves.toBeNull();
   });
 });
