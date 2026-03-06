@@ -100,17 +100,9 @@ describe('e2e: vim (cli process invocations)', () => {
     try {
       const startResult = await runCommand([
         'start',
-        'command',
-        '-v',
-        'vim',
-        '>/dev/null',
-        '2>&1',
-        '&&',
-        'exec',
-        'vim',
-        '||',
-        'exec',
-        'vi',
+        'sh',
+        '-lc',
+        'command -v vim >/dev/null 2>&1 && exec vim || exec vi',
       ]);
 
       expect(startResult.exitCode).toBe(0);

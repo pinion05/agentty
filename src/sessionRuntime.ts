@@ -15,8 +15,10 @@ import {
 
 export interface StartSessionInput {
   command: string;
+  args?: string[];
   cwd: string;
   name?: string;
+  displayCommand?: string;
 }
 
 export interface SessionMetadata {
@@ -37,8 +39,8 @@ const WORKER_ENTRY_PATH = path.resolve(__dirname, '../dist/worker.js');
 const LOGS_DIR = 'logs';
 const KILL_WAIT_TIMEOUT_MS = 3_000;
 const KILL_WAIT_INTERVAL_MS = 50;
-const SOCKET_READY_TIMEOUT_MS = 1_000;
-const SOCKET_READY_POLL_INTERVAL_MS = 50;
+const START_READY_TIMEOUT_MS = 10_000;
+const START_READY_POLL_INTERVAL_MS = 50;
 
 function isUnavailableIpcError(error: unknown): boolean {
   const code = (error as NodeJS.ErrnoException)?.code;
@@ -85,18 +87,20 @@ async function markSessionExited(sessionId: string, exitCode: number | null): Pr
   }
 }
 
-async function waitForExited(sessionId: string): Promise<void> {
+async function waitForExited(sessionId: string): Promise<boolean> {
   const deadline = Date.now() + KILL_WAIT_TIMEOUT_MS;
 
   while (Date.now() < deadline) {
     const session = await readSessionById(sessionId);
 
     if (!session || session.status === 'exited') {
-      return;
+      return true;
     }
 
     await new Promise((resolve) => setTimeout(resolve, KILL_WAIT_INTERVAL_MS));
   }
+
+  return false;
 }
 
 function getWorkerLogPath(sessionId: string): string {
@@ -104,7 +108,7 @@ function getWorkerLogPath(sessionId: string): string {
 }
 
 async function waitForSocketReady(socketPath: string, didWorkerExit: () => boolean): Promise<boolean> {
-  const deadline = Date.now() + SOCKET_READY_TIMEOUT_MS;
+  const deadline = Date.now() + START_READY_TIMEOUT_MS;
 
   while (Date.now() < deadline) {
     try {
@@ -118,7 +122,7 @@ async function waitForSocketReady(socketPath: string, didWorkerExit: () => boole
       break;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, SOCKET_READY_POLL_INTERVAL_MS));
+    await new Promise((resolve) => setTimeout(resolve, START_READY_POLL_INTERVAL_MS));
   }
 
   try {
@@ -129,7 +133,37 @@ async function waitForSocketReady(socketPath: string, didWorkerExit: () => boole
   }
 }
 
-export async function startSession({ command, cwd, name }: StartSessionInput): Promise<SessionMetadata> {
+async function waitForSessionReady(
+  sessionId: string,
+  workerPid: number,
+  didWorkerExit: () => boolean,
+): Promise<SessionMetadata | null> {
+  const deadline = Date.now() + START_READY_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    const session = await readSessionById(sessionId);
+
+    if (
+      session &&
+      session.status === 'running' &&
+      typeof session.pid === 'number' &&
+      typeof session.workerPid === 'number' &&
+      session.pid !== workerPid
+    ) {
+      return session as SessionMetadata;
+    }
+
+    if (didWorkerExit()) {
+      break;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, START_READY_POLL_INTERVAL_MS));
+  }
+
+  return null;
+}
+
+export async function startSession({ command, args, cwd, name, displayCommand }: StartSessionInput): Promise<SessionMetadata> {
   const trimmedCommand = command.trim();
 
   if (!trimmedCommand) {
@@ -149,9 +183,11 @@ export async function startSession({ command, cwd, name }: StartSessionInput): P
   const workerSpec = {
     id: sessionId,
     command: trimmedCommand,
+    ...(args ? { args } : {}),
     cwd,
     socketPath,
     startedAt: now,
+    ...(displayCommand ? { displayCommand } : {}),
     ...(name ? { name } : {}),
   };
 
@@ -195,7 +231,7 @@ export async function startSession({ command, cwd, name }: StartSessionInput): P
     id: sessionId,
     pid: child.pid,
     workerPid: child.pid,
-    command: trimmedCommand,
+    command: displayCommand ?? trimmedCommand,
     cwd,
     startedAt: now,
     lastActiveAt: now,
@@ -229,13 +265,29 @@ export async function startSession({ command, cwd, name }: StartSessionInput): P
     await markSessionExited(sessionId, workerExitCode);
 
     throw new Error(
-      `session worker failed to start (socket was not created within ${SOCKET_READY_TIMEOUT_MS}ms): ${socketPath}. Check worker log: ${logFilePath}`,
+      `session worker failed to start (socket was not created within ${START_READY_TIMEOUT_MS}ms): ${socketPath}. Check worker log: ${logFilePath}`,
+    );
+  }
+
+  const readySession = await waitForSessionReady(sessionId, child.pid, () => workerExited);
+
+  if (!readySession) {
+    try {
+      process.kill(child.pid, 'SIGTERM');
+    } catch {
+      // ignore cleanup errors
+    }
+
+    await markSessionExited(sessionId, workerExitCode);
+
+    throw new Error(
+      `session worker failed to become ready within ${START_READY_TIMEOUT_MS}ms: ${socketPath}. Check worker log: ${logFilePath}`,
     );
   }
 
   child.unref();
 
-  return session;
+  return readySession;
 }
 
 export async function sendText(sessionId: string, payload: string): Promise<void> {
@@ -301,7 +353,11 @@ export async function killSession(sessionId: string): Promise<void> {
     await requestIpc(session.socketPath, {
       method: 'kill',
     });
-    await waitForExited(sessionId);
+    const exited = await waitForExited(sessionId);
+
+    if (!exited) {
+      throw new Error(`session did not exit within ${KILL_WAIT_TIMEOUT_MS}ms: ${sessionId}`);
+    }
   } catch (error) {
     if (isUnavailableIpcError(error)) {
       await markSessionExited(sessionId, null);

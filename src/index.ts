@@ -16,8 +16,10 @@ interface GetOptionResult extends SessionOptionResult {
 
 interface StartOptionResult {
   command: string;
+  args?: string[];
   cwd: string;
   name?: string;
+  displayCommand: string;
 }
 
 export interface CliIo {
@@ -125,6 +127,18 @@ function parseGetOptions(args: string[]): GetOptionResult {
   };
 }
 
+function formatCommandForDisplay(commandParts: string[]): string {
+  return commandParts
+    .map((part) => {
+      if (part.length === 0 || /[\s"'\\]/.test(part)) {
+        return JSON.stringify(part);
+      }
+
+      return part;
+    })
+    .join(' ');
+}
+
 function parseStartOptions(args: string[]): StartOptionResult {
   let cwd = process.cwd();
   let name: string | undefined;
@@ -177,9 +191,11 @@ function parseStartOptions(args: string[]): StartOptionResult {
   }
 
   return {
-    command: commandParts.join(' '),
+    command: commandParts[0],
+    args: commandParts.length > 1 ? commandParts.slice(1) : undefined,
     cwd,
     name,
+    displayCommand: formatCommandForDisplay(commandParts),
   };
 }
 
@@ -262,8 +278,8 @@ export async function runCli(argv: string[] = process.argv.slice(2), io: CliIo =
   }
 
   if (command === 'start') {
-    const { command: startCommand, cwd, name } = parseStartOptions(argv.slice(1));
-    const session = await startSession({ command: startCommand, cwd, name });
+    const { command: startCommand, args, cwd, name, displayCommand } = parseStartOptions(argv.slice(1));
+    const session = await startSession({ command: startCommand, args, cwd, name, displayCommand });
 
     io.stdout(session.id);
     return;

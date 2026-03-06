@@ -12,10 +12,12 @@ import type { SessionRecord } from './types';
 interface WorkerSpec {
   id: string;
   command: string;
+  args?: string[];
   cwd: string;
   name?: string;
   socketPath: string;
   startedAt: string;
+  displayCommand?: string;
 }
 
 interface IpcResponse {
@@ -62,9 +64,11 @@ function parseWorkerSpec(): WorkerSpec {
   return {
     id: spec.id,
     command: spec.command,
+    ...(Array.isArray(spec.args) ? { args: spec.args } : {}),
     cwd: spec.cwd,
     socketPath: spec.socketPath,
     startedAt: spec.startedAt,
+    ...(spec.displayCommand ? { displayCommand: spec.displayCommand } : {}),
     ...(spec.name ? { name: spec.name } : {}),
   };
 }
@@ -72,7 +76,7 @@ function parseWorkerSpec(): WorkerSpec {
 function toSessionRecord(spec: WorkerSpec, patch: Partial<SessionRecord>): SessionRecord {
   return {
     id: spec.id,
-    command: spec.command,
+    command: spec.displayCommand ?? spec.command,
     cwd: spec.cwd,
     socketPath: spec.socketPath,
     workerPid: process.pid,
@@ -342,13 +346,21 @@ async function main(): Promise<void> {
 
   await ensureNodePtySpawnHelperExecutable();
 
-  ptyProcess = spawn(shell, ['-lc', spec.command], {
-    cwd: spec.cwd,
-    env: process.env,
-    name: 'xterm-256color',
-    cols: 80,
-    rows: 24,
-  });
+  ptyProcess = Array.isArray(spec.args)
+    ? spawn(spec.command, spec.args, {
+        cwd: spec.cwd,
+        env: process.env,
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 24,
+      })
+    : spawn(shell, ['-lc', spec.command], {
+        cwd: spec.cwd,
+        env: process.env,
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 24,
+      });
 
   ptyProcess.onData?.((chunk) => {
     appendOutput(chunk);

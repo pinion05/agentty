@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,6 +8,10 @@ import type { ActiveSessionId, SessionRecord, SessionRecordList } from './types'
 const SESSIONS_FILE = 'sessions.json';
 const ACTIVE_SESSION_FILE = 'active-session-id';
 const SOCKETS_DIR = 'sockets';
+const STATE_LOCK_DIR = '.state-lock';
+const STATE_LOCK_TIMEOUT_MS = 5_000;
+const STATE_LOCK_RETRY_MS = 25;
+const STATE_LOCK_STALE_MS = 10_000;
 
 export function getStateRoot(): string {
   const overridden = process.env.AGENTTY_HOME?.trim();
@@ -25,6 +29,10 @@ function getSessionsPath(): string {
 
 function getActiveSessionPath(): string {
   return path.join(getStateRoot(), ACTIVE_SESSION_FILE);
+}
+
+function getStateLockPath(): string {
+  return path.join(getStateRoot(), STATE_LOCK_DIR);
 }
 
 export function getSocketsRoot(): string {
@@ -68,6 +76,65 @@ function validateSessions(value: unknown): SessionRecordList {
   return value as SessionRecordList;
 }
 
+async function acquireStateLock(): Promise<void> {
+  await ensureStateRoot();
+  const lockPath = getStateLockPath();
+  const deadline = Date.now() + STATE_LOCK_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    try {
+      await mkdir(lockPath);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+
+      if (code !== 'EEXIST') {
+        throw error;
+      }
+
+      try {
+        const lockStat = await stat(lockPath);
+
+        if (Date.now() - lockStat.mtimeMs > STATE_LOCK_STALE_MS) {
+          await rm(lockPath, { recursive: true, force: true });
+          continue;
+        }
+      } catch {
+        // ignore stale check failures and retry
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, STATE_LOCK_RETRY_MS));
+    }
+  }
+
+  throw new Error(`Timed out waiting for state lock: ${lockPath}`);
+}
+
+async function releaseStateLock(): Promise<void> {
+  await rm(getStateLockPath(), { recursive: true, force: true });
+}
+
+export async function withStateLock<T>(operation: () => Promise<T>): Promise<T> {
+  await acquireStateLock();
+
+  try {
+    return await operation();
+  } finally {
+    await releaseStateLock();
+  }
+}
+
+async function writeSessionsUnlocked(sessions: SessionRecordList): Promise<void> {
+  await ensureStateRoot();
+
+  const sessionsPath = getSessionsPath();
+  const tempPath = `${sessionsPath}.${process.pid}.${Date.now()}.tmp`;
+  const serialized = JSON.stringify(sessions, null, 2);
+
+  await writeFile(tempPath, serialized, 'utf8');
+  await rename(tempPath, sessionsPath);
+}
+
 export async function readSessions(): Promise<SessionRecordList> {
   try {
     const raw = await readFile(getSessionsPath(), 'utf8');
@@ -94,14 +161,9 @@ export async function readSessions(): Promise<SessionRecordList> {
 }
 
 export async function writeSessions(sessions: SessionRecordList): Promise<void> {
-  await ensureStateRoot();
-
-  const sessionsPath = getSessionsPath();
-  const tempPath = `${sessionsPath}.${process.pid}.${Date.now()}.tmp`;
-  const serialized = JSON.stringify(sessions, null, 2);
-
-  await writeFile(tempPath, serialized, 'utf8');
-  await rename(tempPath, sessionsPath);
+  await withStateLock(async () => {
+    await writeSessionsUnlocked(sessions);
+  });
 }
 
 export async function readSessionById(sessionId: string): Promise<SessionRecord | undefined> {
@@ -110,19 +172,21 @@ export async function readSessionById(sessionId: string): Promise<SessionRecord 
 }
 
 export async function upsertSession(sessionRecord: SessionRecord): Promise<void> {
-  const sessions = await readSessions();
-  const index = sessions.findIndex((session) => session.id === sessionRecord.id);
+  await withStateLock(async () => {
+    const sessions = await readSessions();
+    const index = sessions.findIndex((session) => session.id === sessionRecord.id);
 
-  if (index === -1) {
-    sessions.push(sessionRecord);
-  } else {
-    sessions[index] = {
-      ...sessions[index],
-      ...sessionRecord,
-    };
-  }
+    if (index === -1) {
+      sessions.push(sessionRecord);
+    } else {
+      sessions[index] = {
+        ...sessions[index],
+        ...sessionRecord,
+      };
+    }
 
-  await writeSessions(sessions);
+    await writeSessionsUnlocked(sessions);
+  });
 }
 
 export async function readActiveSessionId(): Promise<ActiveSessionId> {
@@ -141,12 +205,14 @@ export async function readActiveSessionId(): Promise<ActiveSessionId> {
 }
 
 export async function writeActiveSessionId(sessionId: ActiveSessionId): Promise<void> {
-  await ensureStateRoot();
+  await withStateLock(async () => {
+    await ensureStateRoot();
 
-  if (!sessionId) {
-    await rm(getActiveSessionPath(), { force: true });
-    return;
-  }
+    if (!sessionId) {
+      await rm(getActiveSessionPath(), { force: true });
+      return;
+    }
 
-  await writeFile(getActiveSessionPath(), sessionId, 'utf8');
+    await writeFile(getActiveSessionPath(), sessionId, 'utf8');
+  });
 }

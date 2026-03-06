@@ -1,6 +1,15 @@
-import { readActiveSessionId, writeActiveSessionId } from './state';
+import { readActiveSessionId, readSessionById, writeActiveSessionId } from './state';
+
+async function ensureRunningSession(sessionId: string): Promise<void> {
+  const session = await readSessionById(sessionId);
+
+  if (!session || session.status !== 'running') {
+    throw new Error(`session is not running: ${sessionId}`);
+  }
+}
 
 export async function attachSession(id: string): Promise<void> {
+  await ensureRunningSession(id);
   await writeActiveSessionId(id);
 }
 

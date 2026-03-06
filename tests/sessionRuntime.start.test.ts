@@ -40,6 +40,8 @@ describe('sessionRuntime.startSession', () => {
 
       expect(session.id).toEqual(expect.any(String));
       expect(session.pid).toEqual(expect.any(Number));
+      expect(session.workerPid).toEqual(expect.any(Number));
+      expect(session.pid).not.toBe(session.workerPid);
       expect(session.command).toBe('sleep 30');
       expect(session.cwd).toBe(process.cwd());
       expect(session.status).toBe('running');
@@ -55,6 +57,8 @@ describe('sessionRuntime.startSession', () => {
         cwd: process.cwd(),
         status: 'running',
         exitCode: null,
+        pid: session.pid,
+        workerPid: session.workerPid,
       });
       expect(typeof (sessions[0] as { pid?: unknown }).pid).toBe('number');
     } finally {
